@@ -14,6 +14,8 @@ import { documents, jobs } from '@/server/db/schema';
 import { allowedDocuments } from '@/server/workspace';
 import { assert, audit, lockCompany, requireRole } from '@/server/core';
 export const runtime = 'nodejs';
+// One extraction per request; allow the 90-second provider timeout plus database/storage work.
+export const maxDuration = 120;
 export async function POST(request: Request) {
   try {
     checkOrigin(request);

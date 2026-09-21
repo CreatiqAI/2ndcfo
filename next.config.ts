@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
-  outputFileTracingExcludes: { '*': ['./.data/**/*', './.env*', './test-results/**/*'] },
+  outputFileTracingExcludes: {
+    '*': ['./.data/**/*', './.data-backups/**/*', './.env*', './test-results/**/*'],
+  },
+  outputFileTracingIncludes: { '/api/*': ['./config/supabase-ca.crt'] },
   serverExternalPackages: ['@electric-sql/pglite', 'pg', 'exceljs', 'sharp'],
   async headers() {
     return [
