@@ -70,13 +70,13 @@ try {
   await target.query('CREATE SCHEMA IF NOT EXISTS finance');
   await target.query('REVOKE ALL ON SCHEMA finance FROM PUBLIC, anon, authenticated');
   await target.query('SET LOCAL search_path TO finance,public');
-  const files = (await readdir('migrations')).filter((f) => f.endsWith('.sql')).sort();
+  const files = (await readdir('database/migrations')).filter((f) => f.endsWith('.sql')).sort();
   const tables: string[] = [];
   await target.query(
     'CREATE TABLE schema_migrations(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
   );
   for (const file of files) {
-    const content = await readFile('migrations/' + file, 'utf8');
+    const content = await readFile('database/migrations/' + file, 'utf8');
     for (const m of content.matchAll(/CREATE TABLE (\w+)/g)) tables.push(m[1]);
     for (const statement of content
       .split('--> statement-breakpoint')

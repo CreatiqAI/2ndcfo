@@ -15,7 +15,7 @@ export async function migrate(db: DB) {
   await db.execute(
     sql`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
   );
-  const dir = path.join(process.cwd(), 'migrations');
+  const dir = path.join(process.cwd(), 'database', 'migrations');
   for (const file of (await readdir(dir)).filter((x) => x.endsWith('.sql')).sort()) {
     const applied = await db.execute(sql`SELECT name FROM schema_migrations WHERE name = ${file}`);
     if (applied.rows.length) continue;

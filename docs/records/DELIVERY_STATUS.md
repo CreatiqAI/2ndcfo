@@ -59,7 +59,7 @@ Repeat the paid live test explicitly with `$env:RUN_LIVE_AI_TEST='1'; node --imp
 
 ## Google login implementation — setup pending
 
-Login now includes Continue with Google; Settings includes explicit same-email Google account linking for existing password users. Migration 0004 was applied to Supabase. The Supabase provider is still disabled because a Google OAuth client has not been created. No real Google login success is claimed. 31 automated tests, negative OAuth HTTP checks and production build passed. Follow docs/GOOGLE_LOGIN_SETUP.md to configure the provider and complete an actual user sign-in test.
+Login now includes Continue with Google; Settings includes explicit same-email Google account linking for existing password users. Migration 0004 was applied to Supabase. The Supabase provider is still disabled because a Google OAuth client has not been created. No real Google login success is claimed. 31 automated tests, negative OAuth HTTP checks and production build passed. Follow docs/operations/GOOGLE_LOGIN_SETUP.md to configure the provider and complete an actual user sign-in test.
 
 ## Supabase project move — 22 September 2026
 

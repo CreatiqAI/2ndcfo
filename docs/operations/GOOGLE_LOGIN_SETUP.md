@@ -21,16 +21,16 @@ http://127.0.0.1:3000
 Authorized redirect URIs（注意这里是 Supabase 地址，不是 localhost）:
 
 ```text
-https://adiaqoqjmjevvqmtdpnn.supabase.co/auth/v1/callback
+https://btpolwpgnekvyimpqegu.supabase.co/auth/v1/callback
 ```
 
 创建后保存 Client ID 与 Client Secret。Secret 只填入 Supabase，不要发到聊天或提交到代码。
 
 ## 2. Supabase 配置 Google
 
-打开 https://supabase.com/dashboard/project/adiaqoqjmjevvqmtdpnn/auth/providers 。选择 Google，填写 Client ID 和 Client Secret，启用并保存。保持 nonce 验证开启。
+打开 https://supabase.com/dashboard/project/btpolwpgnekvyimpqegu/auth/providers 。选择 Google，填写 Client ID 和 Client Secret，启用并保存。保持 nonce 验证开启。
 
-打开 https://supabase.com/dashboard/project/adiaqoqjmjevvqmtdpnn/auth/url-configuration 。
+打开 https://supabase.com/dashboard/project/btpolwpgnekvyimpqegu/auth/url-configuration 。
 
 Site URL:
 

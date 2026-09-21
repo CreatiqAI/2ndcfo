@@ -1,12 +1,16 @@
+# Dependencies and generated output
 node_modules/
 .next/
-.data/
-.env
-.env.local
+.vercel/
 *.tsbuildinfo
 test-results/
 playwright-report/
 
-.env.*.local
+# Private runtime configuration; only explicit public templates are versioned
+.env*
+!.env.example
+!.env.vercel.example
 
+# Financial data, original files and recovery backups
+.data/
 .data-backups/

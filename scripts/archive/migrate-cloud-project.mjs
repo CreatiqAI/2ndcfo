@@ -1,5 +1,5 @@
 // Cloud-to-cloud migration. Stop every app/worker writing to the source first.
-// Run: CONFIRM_CLOUD_MIGRATION=1 node scripts/migrate-cloud-project.mjs
+// Run: CONFIRM_CLOUD_MIGRATION=1 node scripts/archive/migrate-cloud-project.mjs
 import assert from 'node:assert/strict';
 import { readFile, readdir, mkdir, writeFile, copyFile } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
@@ -90,9 +90,12 @@ try {
   ]);
   assert.equal(bucket.rows.length, 1, 'Create destination bucket first');
   assert.equal(bucket.rows[0].public, false, 'Destination bucket must be private');
-  const files = (await readdir('migrations')).filter((f) => f.endsWith('.sql')).sort();
+  const files = (await readdir('database/migrations')).filter((f) => f.endsWith('.sql')).sort();
   const sqlFiles = await Promise.all(
-    files.map(async (name) => ({ name, sql: await readFile(`migrations/${name}`, 'utf8') })),
+    files.map(async (name) => ({
+      name,
+      sql: await readFile(`database/migrations/${name}`, 'utf8'),
+    })),
   );
   const tables = sqlFiles.flatMap(({ sql }) =>
     [...sql.matchAll(/CREATE TABLE (\w+)/g)].map((m) => m[1]),

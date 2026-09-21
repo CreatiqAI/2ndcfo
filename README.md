@@ -2,21 +2,38 @@
 
 Functional implementation of build-order **Stages 1–5**. Read the complete source requirement before implementation; the architecture and roadmap were written first. This is a production-oriented foundation with locally verified workflows, **not the complete Phase 1 MVP or a production-certified release**.
 
+## Project navigation
+
+- [Folder map](docs/PROJECT_STRUCTURE.md)
+- [Documentation index](docs/README.md)
+- [Database operations and migration history](database/README.md)
+- [Vercel deployment guide](docs/operations/VERCEL_SETUP.md)
+- [Project change record](docs/records/CHANGELOG.md)
+
 ## Design documents
 
-- [System architecture](docs/SYSTEM_ARCHITECTURE.md)
-- [Database architecture](docs/DATABASE_ARCHITECTURE.md)
-- [Implementation roadmap and all 60 requirement mappings](docs/IMPLEMENTATION_ROADMAP.md)
-- [Full original requirements](docs/REQUIREMENTS.md)
-- [Delivery status, verification and remaining gates](docs/DELIVERY_STATUS.md)
+- [System architecture](docs/architecture/SYSTEM_ARCHITECTURE.md)
+- [Database architecture](docs/architecture/DATABASE_ARCHITECTURE.md)
+- [Implementation roadmap and all 60 requirement mappings](docs/planning/IMPLEMENTATION_ROADMAP.md)
+- [Full original requirements](docs/planning/REQUIREMENTS.md)
+- [Delivery status, verification and remaining gates](docs/records/DELIVERY_STATUS.md)
 
-## Run locally
+## Current deployment state
+
+The active local app uses Supabase project `btpolwpgnekvyimpqegu` in Singapore,
+schema `finance` and private bucket `finance-document`. The completed cloud move
+verified all 19 tables and 79 originals. `.env.local` is the private local runtime
+configuration; `.env.vercel.local` is the private Vercel import file. The old project
+and backups are retained. Vercel deployment remains user-managed; the current API
+upload/download path needs adaptation to preserve 20 MB files under Vercel limits.
+
+## Run a fresh local preview
 
 Requires Node.js 24+ and npm. No Docker or installed database is needed for the local preview.
 
 ```powershell
 npm ci
-Copy-Item .env.example .env.local
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm run dev
 ```
 
@@ -45,10 +62,10 @@ To enable the live adapter, set these **server-side** values and restart:
 ```dotenv
 AI_PROVIDER=openai
 OPENAI_API_KEY=your-server-side-key
-OPENAI_MODEL=your-enabled-vision-and-structured-output-model
+OPENAI_MODEL=gpt-5-mini
 ```
 
-The adapter sends PDF/image evidence to the Responses API using strict JSON schemas, `store:false`, a timeout and no action tools. Model choice is configurable. Verify your provider access and document-processing policy before using real company documents. A live model was **not called or validated** during this delivery because no credentials were supplied. See [official file inputs](https://developers.openai.com/api/docs/guides/file-inputs) and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+The adapter sends PDF/image evidence to the Responses API using strict JSON schemas, `store:false`, a timeout and no action tools. Model choice is configurable. Verify your provider access and document-processing policy before using real company documents. Live extraction was verified with synthetic evidence using the previously configured model; the current selected model is `gpt-5-mini`, with no temperature or reasoning overrides. A new live GPT-5 mini acceptance run has not been performed. See [official file inputs](https://developers.openai.com/api/docs/guides/file-inputs) and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
 
 Multi-document PDFs are segmented by the configured provider into source-page ranges. With no provider, the whole file stays an unknown candidate and Finance can manually split it. Each segment can be downloaded separately while preserving the original.
 
@@ -98,4 +115,4 @@ npm run worker
 
 Scripts load `.env`/`.env.local` when present; injected environment values take precedence. Never carry local `.env.local` into a production deployment. Production startup does not auto-migrate or seed demo users. Schema changes are additive checked-in migrations, including immutable evidence triggers. UI modules have no database or provider credentials.
 
-Before real financial use, complete the release gates in `docs/DELIVERY_STATUS.md`: external PostgreSQL/S3/live-provider integration testing, malware scanning/quarantine, password recovery/email verification/MFA policy, proxy rate/body controls, backup restoration, multi-worker soak/load testing and independent security/accessibility review. Full Stage 10 remains scheduled.
+Before real financial use, complete the release gates in `docs/records/DELIVERY_STATUS.md`: external PostgreSQL/S3/live-provider integration testing, malware scanning/quarantine, password recovery/email verification/MFA policy, proxy rate/body controls, backup restoration, multi-worker soak/load testing and independent security/accessibility review. Full Stage 10 remains scheduled.
