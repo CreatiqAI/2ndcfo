@@ -60,3 +60,19 @@ Repeat the paid live test explicitly with `$env:RUN_LIVE_AI_TEST='1'; node --imp
 ## Google login implementation — setup pending
 
 Login now includes Continue with Google; Settings includes explicit same-email Google account linking for existing password users. Migration 0004 was applied to Supabase. The Supabase provider is still disabled because a Google OAuth client has not been created. No real Google login success is claimed. 31 automated tests, negative OAuth HTTP checks and production build passed. Follow docs/GOOGLE_LOGIN_SETUP.md to configure the provider and complete an actual user sign-in test.
+
+## Supabase project move — 22 September 2026
+
+Migrated from adiaqoqjmjevvqmtdpnn (Seoul) to btpolwpgnekvyimpqegu (Singapore).
+Verified complete contents of all 19 finance tables and SHA-256 checksums of all
+79 original files. Includes 74 invoices, 7 users, 7 workspaces, 3 claims, 5 bank
+statements, 17 bank rows and 10 allocations. All destination finance tables have
+RLS enabled, with no schema access for anon/authenticated. Private storage remains
+private. Local runtime switched successfully; homepage, workspace reads and an
+original file read were checked against the new project. Production Vercel origin
+remains https://2ndcfo.vercel.app in the private deployment env file.
+
+Rollback backup: .data-backups/cloud-move-2026-09-21T19-49-33-297Z (ignored by Git),
+including prior local environment, every table snapshot and original file.
+Old Supabase project retained. Vercel deployment and the documented large-file
+transport adaptation remain outstanding.

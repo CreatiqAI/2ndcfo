@@ -33,9 +33,10 @@ S3 keys and service_role keys are different credentials.
 
 1. Complete `.env.vercel.local`. Keep the existing OpenAI key, model, private bucket,
    region, endpoint, database schema and certificate path as supplied.
-2. Complete and verify the database + file migration before using the new project.
-   At the time this document was written, migration is still waiting for credentials;
-   the new `finance` schema is not ready for the application.
+2. Database + file migration completed on 22 September 2026 (Malaysia time).
+   The new project's 19 finance tables and 79 originals were verified against the
+   source, including full table content and file checksums. The local app now uses
+   the new project. The old project and a private local backup remain available.
 3. Import the GitHub repository into Vercel with the Next.js preset, Node.js 24,
    install command `npm ci` and build command `npm run build`.
 4. Import `.env.vercel.local` in Environment Variables for **Production**. Use the
