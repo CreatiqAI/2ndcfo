@@ -71,8 +71,7 @@ export function PayslipTemplateSettings({
     }
   }
   return (
-    <section className="panel settings-panel full-width">
-      <h2>Payslip template</h2>
+    <section className="payslip-template-editor">
       <p>
         Choose the appearance of new salary slips. Previously saved payslips keep their original
         design.

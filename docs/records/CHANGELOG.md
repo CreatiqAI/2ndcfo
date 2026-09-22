@@ -1,5 +1,12 @@
 # Project change record
 
+## 23 September 2026 — payslip template popup
+
+- Replaced the expanded Settings editor with a Payslips card and Payslip template
+  button. Controls and PDF preview now open in the existing accessible modal.
+- Kept template saving and Finance/Admin access unchanged; improved field spacing
+  inside the popup. No database changes. Production build and TypeScript passed.
+
 ## 23 September 2026 — editable payslip template and logo
 
 - Added Settings → Payslip template for Admin/Finance, including title, accent/page

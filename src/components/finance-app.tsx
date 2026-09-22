@@ -1624,12 +1624,14 @@ export function FinanceApp() {
           {page === 'Settings' && (
             <div className="settings-grid">
               {canEdit && (
-                <PayslipTemplateSettings
-                  key={state.company.id}
-                  companyId={state.company.id}
-                  initial={state.company.payslipTemplate}
-                  onSave={(data) => action('salary.template.save', data, 'Payslip template saved.')}
-                />
+                <section className="panel settings-panel">
+                  <h2>Payslips</h2>
+                  <p>Customise your payslip design, company logo and colours.</p>
+                  <button className="button secondary" onClick={() => setModal('payslip-template')}>
+                    <Settings2 size={16} />
+                    Payslip template
+                  </button>
+                </section>
               )}
               <section className="panel settings-panel">
                 <h2>Google sign-in</h2>
@@ -1825,6 +1827,16 @@ export function FinanceApp() {
       {modal === 'claim-link' && (
         <Modal title="Send claim link to employee" onClose={close}>
           <ClaimLinkForm state={state} month={month} action={action} busy={busy} />
+        </Modal>
+      )}
+      {modal === 'payslip-template' && canEdit && (
+        <Modal title="Payslip template" onClose={close} wide>
+          <PayslipTemplateSettings
+            key={state.company.id}
+            companyId={state.company.id}
+            initial={state.company.payslipTemplate}
+            onSave={(data) => action('salary.template.save', data, 'Payslip template saved.')}
+          />
         </Modal>
       )}
       {modal === 'salary-create' && (

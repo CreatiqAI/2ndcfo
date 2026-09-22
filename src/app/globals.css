@@ -1042,6 +1042,17 @@ td small {
   grid-template-columns: 1fr 1fr;
   gap: 0 17px;
 }
+.payslip-template-editor .form-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 17px;
+  min-width: 0;
+}
+.payslip-template-editor .form-grid input:not([type='color']) {
+  width: 100%;
+  min-width: 0;
+}
 .form-error {
   background: #fff1e9;
   color: #ae6847;

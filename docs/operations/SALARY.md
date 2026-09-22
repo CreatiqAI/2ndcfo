@@ -2,7 +2,9 @@
 
 ## Template settings
 
-Open **Settings → Payslip template** as Admin or Finance. Set the heading, accent
+Open **Settings → Payslips → Payslip template** as Admin or Finance. The button
+opens a popup with the editor and PDF preview. Close it with the X or Escape;
+save before closing to keep edits. Set the heading, accent
 and page colours, footer message, logo size and signature-line visibility. Upload
 a PNG/JPEG company logo up to 1 MB (maximum 16 megapixels), or remove it to restore
 the radial mark. Logos are resized to at most 256×256 pixels, with proportions
