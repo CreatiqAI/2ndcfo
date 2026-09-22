@@ -1,5 +1,14 @@
 # Database change record
 
+## 22 September 2026 — upload payment terms
+
+Applied `0005_upload_payment_terms.sql` to `btpolwpgnekvyimpqegu`, schema `finance`.
+Added nullable `documents.default_payment_term_days` with a 0–365 day check.
+Verified column type/nullability, constraint and migration ledger after applying.
+Existing evidence is unchanged; new uploads record the choice in the upload audit.
+Recovery: roll back the application commit and retain the additive nullable column
+and its values. No destructive rollback or record rewrite is required.
+
 ## 22 September 2026 — repository organisation
 
 Moved SQL files from `migrations/` to `database/migrations/`. Filenames and SQL bytes
@@ -23,5 +32,6 @@ read checks passed. Old project retained; backup recorded in private
 | `0002_evidence_guards.sql` | Rejected matching decisions and additional evidence guards | Applied |
 | `0003_cancellations.sql` | Immutable invoice cancellation records | Applied |
 | `0004_google_login.sql` | Google subject identity field | Applied; provider setup postponed |
+| `0005_upload_payment_terms.sql` | Durable default payment days per upload | Applied |
 
-The current cloud database records these four versions in `finance.schema_migrations`.
+The current cloud database records these five versions in `finance.schema_migrations`.

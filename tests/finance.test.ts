@@ -422,12 +422,13 @@ describe('Document pipeline and statement import', () => {
     const doc = await uploadDocument(
       admin,
       { name: 'two-page.pdf', data: bytes },
-      { batchId: randomUUID() },
+      { batchId: randomUUID(), defaultPaymentTermDays: 14 },
     );
     await processOne(admin.companyId);
     const db = await getDb(),
       [record] = await db.select().from(s.documents).where(eq(s.documents.id, doc.id));
     expect(await readOriginal(record.storageKey)).toEqual(bytes);
+    expect(record.defaultPaymentTermDays).toBe(14);
     const [i] = await db.select().from(s.invoices).where(eq(s.invoices.documentId, doc.id));
     expect(i.totalMinor).toBeNull();
     expect(i.reviewStatus).toBe('Needs Review');

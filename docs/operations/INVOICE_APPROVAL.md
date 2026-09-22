@@ -1,5 +1,14 @@
 # Approvals and overdue invoices
 
+During document upload, choose **Default payment terms for this upload**: invoice
+date, 7, 14, 30, 45, 60 or 90 calendar days. The choice applies to every sales or
+supplier invoice extracted from those files only when both printed terms and due
+date are missing. Leave **Use document terms only** to avoid supplying a default.
+The choice is fixed once the batch starts, retained for worker retries and recorded
+in the upload audit. Edit individual extracted terms in Review before approval.
+Claim receipts and bank statements do not use invoice defaults. Earlier uploads
+remain unchanged; each new batch gets its own choice.
+
 Money In and Money Out show **Approve all (count)** for Finance/Admin users.
 The count includes unapproved, non-rejected invoices in the current search/status
 filter, excluding claim receipts. Open the button to review the listed invoices,

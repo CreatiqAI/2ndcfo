@@ -100,6 +100,7 @@ export const documents = pgTable(
     hash: text('hash').notNull(),
     imageHash: text('image_hash'),
     purpose: text('purpose').notNull(),
+    defaultPaymentTermDays: integer('default_payment_term_days'),
     createdAt: created(),
   },
   (t) => [unique().on(t.companyId, t.id), index().on(t.companyId, t.hash)],

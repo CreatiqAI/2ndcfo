@@ -1914,6 +1914,7 @@ function UploadForm({
   notify: (s: string, e?: boolean) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]),
+    [paymentDays, setPaymentDays] = useState(''),
     [results, setResults] = useState<Record<number, string>>({}),
     [busy, setBusy] = useState(false),
     [drag, setDrag] = useState(false),
@@ -1935,6 +1936,7 @@ function UploadForm({
       const form = new FormData();
       form.set('file', file);
       form.set('batchId', batchId);
+      if (!claimId && paymentDays !== '') form.set('defaultPaymentTermDays', paymentDays);
       if (claimId) form.set('claimId', claimId);
       setResults((r) => ({ ...r, [index]: 'Uploading…' }));
       try {
@@ -1992,6 +1994,29 @@ function UploadForm({
           records.
         </span>
       </div>
+      {!claimId && (
+        <>
+          <FormField label="Default payment terms for this upload">
+            <select
+              value={paymentDays}
+              onChange={(e) => setPaymentDays(e.target.value)}
+              disabled={busy || Object.keys(results).length > 0}
+            >
+              <option value="">Use document terms only</option>
+              {[0, 7, 14, 30, 45, 60, 90].map((days) => (
+                <option key={days} value={days}>
+                  {days === 0 ? 'Due on invoice date' : `${days} days from invoice date`}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <p className="muted">
+            Applies to every invoice in these files when its own payment terms and due date are
+            missing. Due dates count from each invoice’s date, not the upload date. Review or edit
+            the terms before approval.
+          </p>
+        </>
+      )}
       {files.length > 0 && (
         <>
           <div className="section-heading compact">

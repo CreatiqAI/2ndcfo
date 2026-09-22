@@ -1,5 +1,16 @@
 # Project change record
 
+## 22 September 2026 — upload payment-terms selector
+
+- Added batch payment-day choices beside document upload. Persisted each file's
+  default with its audit record so asynchronous extraction and retries retain it.
+- Apply only to sales/supplier invoices without their own terms or due date.
+  Each invoice's date drives its due date; existing records are unchanged.
+- Applied and verified migration 0005 on active Supabase. Recovery instructions
+  and verification are in `database/CHANGELOG.md`.
+- All 60 tests, typecheck and production build passed. Covered stored upload
+  defaults and precedence over fallback terms. No live invoices were uploaded or approved for testing.
+
 ## 22 September 2026 — payment terms due-date fallback
 
 - Calculate an effective due date from clear calendar-day payment terms when the

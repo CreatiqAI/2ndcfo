@@ -6,6 +6,7 @@ import { readOriginal } from '../ingestion/storage';
 import { ExtractionFailure, provider } from './provider';
 import { detectDuplicate } from '../duplicates/detector';
 import { categorisationDecision } from '../categorisation/policy';
+import { uploadPaymentTerms } from '../../lib/invoice-due-date';
 export async function processOne(companyId?: string): Promise<boolean> {
   const db = await getDb();
   const job = await db.transaction(async (tx) => {
@@ -35,15 +36,13 @@ export async function processOne(companyId?: string): Promise<boolean> {
     const chosen = provider(),
       result = await chosen.invoices(await readOriginal(doc.storageKey), doc.mime, doc.name);
     // Preserve provider evidence even when a later candidate/constraint transaction fails.
-    await db
-      .insert(extractions)
-      .values({
-        companyId: doc.companyId,
-        documentId: doc.id,
-        provider: chosen.name,
-        model: result.model,
-        raw: result.raw,
-      });
+    await db.insert(extractions).values({
+      companyId: doc.companyId,
+      documentId: doc.id,
+      provider: chosen.name,
+      model: result.model,
+      raw: result.raw,
+    });
     await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM companies WHERE id=${doc.companyId} FOR UPDATE`);
       // Reclaimed workers cannot finalise a later lease's job.
@@ -139,7 +138,10 @@ export async function processOne(companyId?: string): Promise<boolean> {
               dueDate,
               description: item.description,
               product: item.product,
-              paymentTerms: item.paymentTerms,
+              paymentTerms: uploadPaymentTerms(
+                item,
+                doc.claimId ? null : doc.defaultPaymentTermDays,
+              ),
               bankReference: item.bankReference,
               subtotalMinor: subtotal,
               taxMinor: tax,
@@ -162,15 +164,13 @@ export async function processOne(companyId?: string): Promise<boolean> {
     });
   } catch (error) {
     if (error instanceof ExtractionFailure)
-      await db
-        .insert(extractions)
-        .values({
-          companyId: job.companyId,
-          documentId: job.documentId,
-          provider: provider().name,
-          model: error.model,
-          raw: error.raw,
-        });
+      await db.insert(extractions).values({
+        companyId: job.companyId,
+        documentId: job.documentId,
+        provider: provider().name,
+        model: error.model,
+        raw: error.raw,
+      });
     await db
       .update(jobs)
       .set({

@@ -8,10 +8,21 @@ import { inspectFile, imageFingerprint, sha256, storeOriginal } from './storage'
 export async function uploadDocument(
   actor: Actor,
   file: { name: string; data: Buffer },
-  input: { batchId?: string; claimId?: string },
+  input: { batchId?: string; claimId?: string; defaultPaymentTermDays?: number },
 ) {
   if (!input.claimId) requireRole(actor, ['Admin', 'Finance']);
   const batchId = z.uuid().parse(input.batchId || randomUUID());
+  const defaultPaymentTermDays = z
+    .number()
+    .int()
+    .min(0)
+    .max(365)
+    .optional()
+    .parse(input.defaultPaymentTermDays);
+  assert(
+    !input.claimId || defaultPaymentTermDays === undefined,
+    'Payment terms apply to invoice uploads only.',
+  );
   if (input.claimId) z.uuid().parse(input.claimId);
   const db = await getDb();
   // Authorise before reading pixels or writing objects.
@@ -68,10 +79,16 @@ export async function uploadDocument(
         hash,
         imageHash,
         purpose: input.claimId ? 'claim' : 'invoice',
+        defaultPaymentTermDays,
       })
       .returning();
     await tx.insert(jobs).values({ companyId: actor.companyId, documentId: doc.id });
-    await audit(tx, actor, doc.id, 'document.uploaded', null, { name: doc.name, hash, batchId });
+    await audit(tx, actor, doc.id, 'document.uploaded', null, {
+      name: doc.name,
+      hash,
+      batchId,
+      defaultPaymentTermDays,
+    });
     return { id: doc.id, name: doc.name };
   });
 }

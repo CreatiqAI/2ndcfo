@@ -1,5 +1,19 @@
 import { documentMonth } from './document-months';
 
+export function uploadPaymentTerms(
+  item: { kind: string; dueDate: string | null; paymentTerms: string | null },
+  days: number | null,
+) {
+  if (
+    item.paymentTerms?.trim() ||
+    item.dueDate ||
+    days === null ||
+    !['Sales Invoice', 'Supplier Invoice'].includes(item.kind)
+  )
+    return item.paymentTerms;
+  return `${days} days`;
+}
+
 /** Derive only unambiguous calendar-day terms; retain the original stored fields. */
 export function invoiceDueDate(invoice: {
   dueDate: string | null;

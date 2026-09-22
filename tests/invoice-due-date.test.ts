@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { invoiceDueDate } from '../src/lib/invoice-due-date';
+import { invoiceDueDate, uploadPaymentTerms } from '../src/lib/invoice-due-date';
 
 const invoice = { invoiceDate: '2026-07-28', dueDate: null, paymentTerms: '14 days' };
 describe('Invoice due date fallback', () => {
+  it('applies upload defaults only to invoices missing their own terms and date', () => {
+    const item = { kind: 'Sales Invoice', paymentTerms: null, dueDate: null };
+    expect(uploadPaymentTerms(item, 14)).toBe('14 days');
+    expect(uploadPaymentTerms({ ...item, kind: 'Supplier Invoice' }, 0)).toBe('0 days');
+    expect(uploadPaymentTerms({ ...item, paymentTerms: '60 days' }, 14)).toBe('60 days');
+    expect(uploadPaymentTerms({ ...item, dueDate: '2026-10-01' }, 14)).toBeNull();
+    expect(uploadPaymentTerms({ ...item, kind: 'Receipt' }, 14)).toBeNull();
+    expect(uploadPaymentTerms(item, null)).toBeNull();
+  });
   it('derives M-Plan calendar terms without changing evidence', () => {
     expect(invoiceDueDate(invoice)).toEqual({ date: '2026-08-11', source: 'terms' });
     expect(invoice.dueDate).toBeNull();
