@@ -1,5 +1,17 @@
 # Project change record
 
+## 23 September 2026 — bank fees and no-receipt expenses
+
+- Added a Bank handling fee / No receipt action to unallocated outgoing statement
+  rows, using the existing category/audit service and requiring an explanation.
+- Money Out now lists categorised outgoing bank expenses with statement links and
+  includes them in total and monthly expenses once, as paid items. Calendar counts
+  include them. Outstanding/overdue totals are unaffected.
+- Existing categorisation, role, period and allocation guards are retained. No
+  financial records were changed for testing and no schema migration is needed.
+- Verified total/paid increments, unchanged outstanding/overdue and prevention of
+  repeated categorisation/invoice allocation. All 72 tests and build passed.
+
 ## 23 September 2026 — monthly revenue and expense views
 
 - Added Money In/Out month calendars; invoice/bill tables and claim bundles appear

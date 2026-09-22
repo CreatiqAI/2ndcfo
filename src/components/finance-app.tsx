@@ -502,6 +502,7 @@ export function FinanceApp() {
         (filter === 'Overdue' ? i.isOverdue : i.paymentStatus === filter) ||
         i.reviewStatus === filter),
   );
+  const bankExpenses = state.bank.filter((b) => b.direction === 'out' && !!b.category);
   const uploadProgress = uploads.filter(
     (u) =>
       u.companyId === companyId &&
@@ -1249,6 +1250,7 @@ export function FinanceApp() {
                             : i.kind !== 'Sales Invoice'),
                       )
                       .map((i) => i.invoiceDate),
+                    ...(page === 'Money Out' ? bankExpenses.map((b) => b.date) : []),
                     ...(page === 'Money Out'
                       ? state.claims.filter((c) => !c.deleted).map((c) => `${c.month}-01`)
                       : []),
@@ -1282,7 +1284,18 @@ export function FinanceApp() {
                               c.month === moneyMonth,
                           )
                         : [];
+                    const monthlyBankExpenses =
+                      page === 'Money Out'
+                        ? bankExpenses
+                            .filter(
+                              (b) =>
+                                b.date.slice(0, 7) === moneyMonth &&
+                                b.currency === state.company.currency,
+                            )
+                            .reduce((sum, b) => sum + b.amountMinor, 0)
+                        : 0;
                     const monthlyTotal =
+                      monthlyBankExpenses +
                       invoices.reduce((n, i) => n + (i.totalMinor || 0), 0) +
                       claims.reduce((n, c) => n + c.claimedMinor, 0);
                     const monthlyOutstanding =
@@ -1373,6 +1386,85 @@ export function FinanceApp() {
                 </section>
               )}
               {page === 'Money Out' && moneyMonth && claimBundles()}
+              {page === 'Money Out' && moneyMonth && (
+                <section className="panel">
+                  <div className="section-heading">
+                    <div>
+                      <h2>Bank fees & expenses without receipts</h2>
+                      <p>
+                        Paid directly from the bank. Original statements remain the supporting
+                        evidence.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Description</th>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Category</th>
+                          <th>Status</th>
+                          <th>Evidence</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bankExpenses
+                          .filter(
+                            (b) =>
+                              b.date.slice(0, 7) === moneyMonth &&
+                              matches(b) &&
+                              ['All', 'Paid'].includes(filter),
+                          )
+                          .map((b) => (
+                            <tr key={b.id}>
+                              <td>
+                                {b.description}
+                                <small>{b.reference}</small>
+                              </td>
+                              <td>{dateLabel(b.date)}</td>
+                              <td>{money(b.amountMinor, b.currency)}</td>
+                              <td>
+                                {b.category === 'Bank Charges' ? 'Bank handling fee' : b.category}
+                              </td>
+                              <td>
+                                <Badge>Paid</Badge>
+                                <small>No receipt · Bank statement</small>
+                              </td>
+                              <td>
+                                <button
+                                  className="text-button"
+                                  onClick={() => {
+                                    const statement = state.statements.find(
+                                      (s) => s.id === b.statementId,
+                                    );
+                                    if (statement) {
+                                      setSelectedStatement(statement);
+                                      setModal('statement');
+                                    }
+                                  }}
+                                >
+                                  View statement
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!bankExpenses.some(
+                    (b) =>
+                      b.date.slice(0, 7) === moneyMonth &&
+                      matches(b) &&
+                      ['All', 'Paid'].includes(filter),
+                  ) && (
+                    <Empty title="No matching bank expenses">
+                      Record an outgoing bank fee or no-receipt expense from statement review.
+                    </Empty>
+                  )}
+                </section>
+              )}
             </>
           )}
           {page === 'Documents' && (
@@ -3817,6 +3909,7 @@ function StatementReview({
     [allowDuplicates, setAllowDuplicates] = useState(false),
     [error, setError] = useState('');
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const [expenseBankId, setExpenseBankId] = useState<string | null>(null);
   const importedRows = state.bank.filter((b) => b.statementId === s.id);
   const edit = (index: number, key: string, value: string) =>
     setDraft((d) => ({
@@ -3915,22 +4008,36 @@ function StatementReview({
                       if (bank.remaining <= 0)
                         return <Badge>{bank.category ? 'Categorised' : 'Matched'}</Badge>;
                       return (
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            disabled={!canEdit || busy}
-                            checked={selectedPayments.includes(bank.id)}
-                            onChange={(e) =>
-                              setSelectedPayments((ids) =>
-                                e.target.checked
-                                  ? [...ids, bank.id]
-                                  : ids.filter((id) => id !== bank.id),
-                              )
-                            }
-                            aria-label={`Select payment row ${index + 1}`}
-                          />
-                          {money(bank.remaining, bank.currency)} left
-                        </label>
+                        <>
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              disabled={!canEdit || busy}
+                              checked={selectedPayments.includes(bank.id)}
+                              onChange={(e) =>
+                                setSelectedPayments((ids) =>
+                                  e.target.checked
+                                    ? [...ids, bank.id]
+                                    : ids.filter((id) => id !== bank.id),
+                                )
+                              }
+                              aria-label={`Select payment row ${index + 1}`}
+                            />
+                            {money(bank.remaining, bank.currency)} left
+                          </label>
+                          {canEdit && bank.direction === 'out' && bank.allocatedMinor === 0 && (
+                            <button
+                              disabled={busy}
+                              className="text-button"
+                              onClick={() => {
+                                setExpenseBankId(bank.id);
+                                setSelectedPayments((ids) => ids.filter((id) => id !== bank.id));
+                              }}
+                            >
+                              Bank handling fee / No receipt
+                            </button>
+                          )}
+                        </>
                       );
                     })()}
                   {canEdit && s.status !== 'Imported' && (
@@ -3959,6 +4066,58 @@ function StatementReview({
           onDone={() => setSelectedPayments([])}
         />
       )}
+      {s.status === 'Imported' &&
+        canEdit &&
+        expenseBankId &&
+        (() => {
+          const bank = importedRows.find((b) => b.id === expenseBankId);
+          if (!bank || bank.category) return null;
+          return (
+            <section className="detail-block" key={bank.id}>
+              <h3>Bank handling fee / No receipt</h3>
+              <p>
+                {bank.description} · {money(bank.amountMinor, bank.currency)} ·{' '}
+                {dateLabel(bank.date)}
+              </p>
+              <p>
+                This records the full outgoing transaction as a paid expense without an invoice. It
+                will appear in Money Out for this month.
+              </p>
+              <SimpleForm
+                busy={busy}
+                submit="Record paid expense"
+                fields={[
+                  {
+                    name: 'category',
+                    label: 'Expense type',
+                    options: ['Bank handling fee', 'No receipt'],
+                  },
+                  { name: 'reason', label: 'Expense description / reason (at least 3 characters)' },
+                ]}
+                onSubmit={async (d) => {
+                  await action(
+                    'bank.categorise',
+                    {
+                      id: bank.id,
+                      category:
+                        d.category === 'Bank handling fee' ? 'Bank Charges' : 'Other Expenses',
+                      reason: d.reason,
+                    },
+                    'Paid bank expense recorded in Money Out.',
+                  );
+                  setExpenseBankId(null);
+                }}
+              />
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() => setExpenseBankId(null)}
+              >
+                Cancel
+              </button>
+            </section>
+          );
+        })()}
       {s.status === 'Imported' && canEdit && (
         <form
           onSubmit={(e) => {

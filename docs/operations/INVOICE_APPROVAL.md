@@ -2,6 +2,10 @@
 
 ## Money In and Money Out calendar
 
+Money Out also includes categorised outgoing bank fees and no-receipt expenses.
+They count once as paid expenses in total/monthly amounts, use the transaction
+date for month grouping, and appear in their own table with statement evidence.
+
 Choose a year and month in **Records by month** before viewing the record tables.
 Money In uses invoice dates; Money Out uses bill dates and claim months. Selections
 are separate for each workspace/page. Undated invoices remain reviewable in Documents.

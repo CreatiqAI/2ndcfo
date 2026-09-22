@@ -971,11 +971,20 @@ describe('Reconciliation transaction invariants', () => {
   it('does not double-count a directly categorised bank fee', async () => {
     const b = await bank(3500),
       i = await approvedInvoice(admin, 3500);
+    const before = (await snapshot(admin)).summaries.find((s) => s.kind === 'Supplier Invoice')!;
     await categoriseBank(admin, {
       id: b.id,
       category: 'Bank Charges',
       reason: 'Monthly fee with bank evidence',
     });
+    const after = (await snapshot(admin)).summaries.find((s) => s.kind === 'Supplier Invoice')!;
+    expect(after.total - before.total).toBe(3500);
+    expect(after.paid - before.paid).toBe(3500);
+    expect(after.outstanding).toBe(before.outstanding);
+    expect(after.overdue).toBe(before.overdue);
+    await expect(
+      categoriseBank(admin, { id: b.id, category: 'Other Expenses', reason: 'Duplicate expense' }),
+    ).rejects.toThrow('already categorised');
     await expect(confirmAllocations(admin, allocate(b.id, i.id, 3500))).rejects.toThrow(
       'categorised',
     );

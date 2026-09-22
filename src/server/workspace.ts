@@ -313,6 +313,12 @@ export async function snapshot(actor: Actor) {
     await db.select().from(s.extractions).where(eq(s.extractions.companyId, actor.companyId))
   ).filter((e) => docIds.has(e.documentId));
   const summaries = ['Sales Invoice', 'Supplier Invoice'].map((kind) => {
+    const bankExpenses =
+      kind === 'Supplier Invoice'
+        ? bankRows.filter(
+            (b) => b.direction === 'out' && !!b.category && b.currency === company.currency,
+          )
+        : [];
     const approvedClaims =
       kind === 'Supplier Invoice'
         ? claimRows.filter(
@@ -332,8 +338,13 @@ export async function snapshot(actor: Actor) {
       total: sumMinor([
         ...list.map((x) => x.totalMinor || 0),
         ...approvedClaims.map((c) => c.claimedMinor),
+        ...bankExpenses.map((b) => b.amountMinor),
       ]),
-      paid: sumMinor([...list.map((x) => x.paidMinor), ...approvedClaims.map((c) => c.paidMinor)]),
+      paid: sumMinor([
+        ...list.map((x) => x.paidMinor),
+        ...approvedClaims.map((c) => c.paidMinor),
+        ...bankExpenses.map((b) => b.amountMinor),
+      ]),
       outstanding: sumMinor([
         ...list.map((x) => x.outstandingMinor),
         ...approvedClaims.map((c) => c.claimedMinor - c.paidMinor),

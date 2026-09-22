@@ -32,6 +32,21 @@ still apply. Invoice payment status refreshes immediately after confirmation.
 
 ## Upload and match
 
+### Bank handling fees and expenses without receipts
+
+In **Review again**, an unmatched outgoing row offers **Bank handling fee / No
+receipt**. Choose Bank handling fee (stored as Bank Charges) or No receipt (stored
+as Other Expenses), enter an explanation, and select **Record paid expense**.
+The whole bank transaction is categorised; it must not already have allocations.
+The original statement remains the evidence and the reason is saved in the audit.
+
+Categorised outgoing transactions appear under **Money Out → Bank fees & expenses
+without receipts**, with a link back to the statement. Total Expenses includes
+them; Monthly Expenses uses their transaction dates and workspace currency.
+These expenses are already paid and do not increase Outstanding or Overdue.
+Repeat categorisation and subsequent invoice allocation are blocked to prevent
+double counting. Previously categorised outgoing transactions are included too.
+
 1. Open **Bank Matching → Import statement** and choose the bank account.
 2. Answer **Which month and year is this bank statement for?** This is required
    for each upload; use the statement period, not today's month.
