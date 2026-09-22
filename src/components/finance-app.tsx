@@ -73,6 +73,17 @@ function invoiceReviewReason(i: Invoice) {
 }
 type Claim = State['claims'][number];
 type Statement = State['statements'][number];
+type UploadEntry = {
+  id: string;
+  file: File;
+  companyId: string;
+  claimId?: string;
+  batchId: string;
+  paymentDays: string;
+  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+  error?: string;
+  documentId?: string;
+};
 type Session = {
   user: { id: string; name: string; email: string };
   workspaces: { id: string; name: string; currency: string; role: string }[];
@@ -248,6 +259,7 @@ function Modal({
   );
 }
 export function FinanceApp() {
+  const [uploads, setUploads] = useState<UploadEntry[]>([]);
   const [trashTarget, setTrashTarget] = useState<{
     id: string;
     type: 'invoice' | 'claim';
@@ -268,7 +280,9 @@ export function FinanceApp() {
     [selectedClaim, setSelectedClaim] = useState<Claim | null>(null),
     [selectedStatement, setSelectedStatement] = useState<Statement | null>(null);
   const state = session?.state;
-  const refresh = useCallback(async (id?: string) => {
+  const activeCompany = useRef(companyId);
+  activeCompany.current = companyId;
+  const refresh = useCallback(async (id?: string, onlyIfActive = false) => {
     const r = await fetch(`/api/state${id ? '?company=' + id : ''}`, { cache: 'no-store' });
     if (r.status === 401) {
       setSession(null);
@@ -277,6 +291,7 @@ export function FinanceApp() {
     }
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
+    if (onlyIfActive && activeCompany.current !== id) return;
     setSession(data);
     setCompanyId(data.state?.company.id || '');
     setLoading(false);
@@ -363,6 +378,67 @@ export function FinanceApp() {
     setSelectedInvoice(null);
     setSelectedStatement(null);
   };
+  const transferUploads = async (entries: UploadEntry[]) => {
+    for (const entry of entries) {
+      setUploads((rows) =>
+        rows.map((r) => (r.id === entry.id ? { ...r, status: 'uploading', error: undefined } : r)),
+      );
+      const form = new FormData();
+      form.set('file', entry.file);
+      form.set('batchId', entry.batchId);
+      if (entry.claimId) form.set('claimId', entry.claimId);
+      else if (entry.paymentDays !== '') form.set('defaultPaymentTermDays', entry.paymentDays);
+      try {
+        const response = await fetch('/api/upload?company=' + entry.companyId, {
+          method: 'POST',
+          body: form,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Upload failed.');
+        setUploads((rows) =>
+          rows.map((r) =>
+            r.id === entry.id ? { ...r, status: 'uploaded', documentId: data.id } : r,
+          ),
+        );
+        if (activeCompany.current === entry.companyId)
+          await refresh(entry.companyId, true).catch(() => {});
+      } catch (error) {
+        setUploads((rows) =>
+          rows.map((r) =>
+            r.id === entry.id
+              ? {
+                  ...r,
+                  status: 'failed',
+                  error: error instanceof Error ? error.message : 'Upload failed.',
+                }
+              : r,
+          ),
+        );
+      }
+    }
+  };
+  const startUploads = (files: File[], paymentDays: string, batchId: string) => {
+    const claimId = selectedClaim?.id;
+    const entries: UploadEntry[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      companyId,
+      claimId,
+      paymentDays,
+      batchId,
+      status: 'queued',
+    }));
+    setUploads((rows) => [...rows, ...entries]);
+    close();
+    navigate(
+      claimId
+        ? 'Claims'
+        : ['Money In', 'Money Out', 'Documents'].includes(page)
+          ? page
+          : 'Documents',
+    );
+    void transferUploads(entries);
+  };
   if (loading)
     return (
       <main className="loading-screen">
@@ -411,6 +487,19 @@ export function FinanceApp() {
       (filter === 'All' ||
         (filter === 'Overdue' ? i.isOverdue : i.paymentStatus === filter) ||
         i.reviewStatus === filter),
+  );
+  const uploadProgress = uploads.filter(
+    (u) =>
+      u.companyId === companyId &&
+      (page === 'Claims' ? !!u.claimId : !u.claimId) &&
+      (u.status !== 'uploaded' || !state.jobs.some((j) => j.documentId === u.documentId)),
+  );
+  const extractionProgress = state.jobs.filter(
+    (j) =>
+      ['queued', 'processing', 'failed'].includes(j.status) &&
+      state.documents.some(
+        (d) => d.id === j.documentId && (page === 'Claims' ? !!d.claimId : d.purpose === 'invoice'),
+      ),
   );
   const claimBundles = () => (
     <section className="panel">
@@ -796,7 +885,88 @@ export function FinanceApp() {
               </button>
             </div>
           )}
-          {pendingCount > 0 && (
+          {['Money In', 'Money Out', 'Documents', 'Claims'].includes(page) &&
+            (uploadProgress.length > 0 || extractionProgress.length > 0) && (
+              <section
+                className="panel"
+                style={{ padding: 20 }}
+                aria-label="Document upload progress"
+              >
+                <h2>Loading documents</h2>
+                <p className="muted">
+                  Invoices appear below when extraction finishes. Their type is identified from the
+                  document.
+                </p>
+                <ul className="upload-list" aria-live="polite">
+                  {uploadProgress.map((entry) => (
+                    <li key={entry.id}>
+                      {entry.status === 'failed' ? (
+                        <AlertTriangle size={18} />
+                      ) : (
+                        <LoaderCircle size={18} className="spin" />
+                      )}
+                      <span>
+                        {entry.file.name}
+                        <small>
+                          {entry.status === 'failed'
+                            ? entry.error
+                            : entry.status === 'queued'
+                              ? 'Waiting to upload…'
+                              : entry.status === 'uploading'
+                                ? 'Uploading document…'
+                                : 'Uploaded · refreshing extraction status…'}
+                        </small>
+                      </span>
+                      {entry.status === 'failed' && (
+                        <button
+                          className="button secondary"
+                          onClick={() => void transferUploads([entry])}
+                        >
+                          Retry upload
+                        </button>
+                      )}
+                      {entry.status === 'uploaded' && (
+                        <button
+                          className="text-button"
+                          onClick={() => void refresh(companyId).catch(() => {})}
+                        >
+                          Refresh status
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                  {extractionProgress.map((job) => (
+                    <li key={job.id}>
+                      {job.status === 'failed' ? (
+                        <AlertTriangle size={18} />
+                      ) : (
+                        <LoaderCircle size={18} className="spin" />
+                      )}
+                      <span>
+                        {state.documents.find((d) => d.id === job.documentId)?.name}
+                        <small>
+                          {job.status === 'failed'
+                            ? job.error || 'Extraction needs attention.'
+                            : job.status === 'queued'
+                              ? 'Uploaded · waiting for AI extraction…'
+                              : 'AI is reading this document…'}
+                        </small>
+                      </span>
+                      {job.status === 'failed' && (
+                        <button
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() => void action('jobs.retry', { id: job.id }).catch(() => {})}
+                        >
+                          Retry extraction
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          {pendingCount > 0 && !['Money In', 'Money Out', 'Documents', 'Claims'].includes(page) && (
             <div className="processing-banner">
               <LoaderCircle className="spin" size={16} />
               {pendingCount} document{pendingCount !== 1 ? 's' : ''} waiting for extraction. You can
@@ -1532,15 +1702,11 @@ export function FinanceApp() {
       {modal === 'upload' && (
         <Modal title={selectedClaim ? 'Upload claim receipts' : 'Upload documents'} onClose={close}>
           <UploadForm
-            companyId={companyId}
             claimId={selectedClaim?.id}
+            onUpload={startUploads}
             onDone={async () => {
-              await refresh(companyId);
               if (selectedClaim) setModal('claim');
-              else {
-                close();
-                navigate('Documents');
-              }
+              else close();
             }}
             notify={notify}
           />
@@ -2229,51 +2395,28 @@ function SimpleForm({
   );
 }
 function UploadForm({
-  companyId,
   claimId,
+  onUpload,
   onDone,
   notify,
 }: {
-  companyId: string;
   claimId?: string;
+  onUpload: (files: File[], paymentDays: string, batchId: string) => void;
   onDone: () => Promise<unknown>;
   notify: (s: string, e?: boolean) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]),
     [paymentDays, setPaymentDays] = useState(''),
-    [results, setResults] = useState<Record<number, string>>({}),
-    [busy, setBusy] = useState(false),
-    [drag, setDrag] = useState(false),
-    [batchId] = useState(() => crypto.randomUUID());
+    [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const add = (incoming: FileList | null) => {
     if (!incoming) return;
-    const list = [...files, ...Array.from(incoming)];
-    if (list.length > 200) {
+    const next = [...files, ...Array.from(incoming)];
+    if (next.length > 200) {
       notify('Choose no more than 200 files per batch.', true);
       return;
     }
-    setFiles(list);
-  };
-  const upload = async () => {
-    setBusy(true);
-    for (const [index, file] of files.entries()) {
-      if (results[index] === 'Uploaded') continue;
-      const form = new FormData();
-      form.set('file', file);
-      form.set('batchId', batchId);
-      if (!claimId && paymentDays !== '') form.set('defaultPaymentTermDays', paymentDays);
-      if (claimId) form.set('claimId', claimId);
-      setResults((r) => ({ ...r, [index]: 'Uploading…' }));
-      try {
-        const r = await fetch('/api/upload?company=' + companyId, { method: 'POST', body: form });
-        const data = await r.json();
-        setResults((v) => ({ ...v, [index]: r.ok ? 'Uploaded' : data.error }));
-      } catch {
-        setResults((r) => ({ ...r, [index]: 'Upload failed. Retry this batch.' }));
-      }
-    }
-    setBusy(false);
+    setFiles(next);
   };
   return (
     <>
@@ -2281,7 +2424,7 @@ function UploadForm({
         className={'dropzone ' + (drag ? 'dragging' : '')}
         role="button"
         tabIndex={0}
-        onClick={() => !busy && input.current?.click()}
+        onClick={() => input.current?.click()}
         onKeyDown={(e) => {
           if (e.key === 'Enter') input.current?.click();
         }}
@@ -2293,16 +2436,12 @@ function UploadForm({
         onDrop={(e) => {
           e.preventDefault();
           setDrag(false);
-          if (!busy) add(e.dataTransfer.files);
+          add(e.dataTransfer.files);
         }}
       >
-        <span>
-          <UploadCloud size={30} />
-        </span>
+        <UploadCloud size={30} />
         <h3>Drop your {claimId ? 'receipts' : 'documents'} here</h3>
-        <p>
-          or <b>browse files</b> on your computer
-        </p>
+        <p>or browse files on your computer</p>
         <small>PDF, JPG, JPEG, PNG · 20 MB each · Up to 200 files</small>
         <input
           ref={input}
@@ -2310,96 +2449,65 @@ function UploadForm({
           multiple
           accept=".pdf,.jpg,.jpeg,.png"
           hidden
-          onChange={(e) => add(e.target.files)}
+          onChange={(e) => {
+            add(e.target.files);
+            e.target.value = '';
+          }}
         />
       </div>
-      <div className="notice">
-        <ShieldCheck size={17} />
-        <span>
-          Original files are retained. Extraction suggestions need your review before becoming final
-          records.
-        </span>
-      </div>
       {!claimId && (
-        <>
-          <FormField label="Default payment terms for this upload">
-            <select
-              value={paymentDays}
-              onChange={(e) => setPaymentDays(e.target.value)}
-              disabled={busy || Object.keys(results).length > 0}
-            >
-              <option value="">Use document terms only</option>
-              {[0, 7, 14, 30, 45, 60, 90].map((days) => (
-                <option key={days} value={days}>
-                  {days === 0 ? 'Due on invoice date' : `${days} days from invoice date`}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <p className="muted">
-            Applies to every invoice in these files when its own payment terms and due date are
-            missing. Due dates count from each invoice’s date, not the upload date. Review or edit
-            the terms before approval.
-          </p>
-        </>
-      )}
-      {files.length > 0 && (
-        <>
-          <div className="section-heading compact">
-            <b>{files.length} files selected</b>
-            <span>{Object.values(results).filter((x) => x === 'Uploaded').length} uploaded</span>
-          </div>
-          <ul className="upload-list">
-            {files.map((f, i) => (
-              <li key={i}>
-                <FileText size={17} />
-                <span>
-                  {f.name}
-                  <small>{results[i] || `${(f.size / 1024).toFixed(0)} KB`}</small>
-                </span>
-                {results[i] === 'Uploaded' ? (
-                  <Check className="green-text" size={18} />
-                ) : (
-                  !busy &&
-                  !results[i] &&
-                  Object.keys(results).length === 0 && (
-                    <button
-                      className="icon-button"
-                      aria-label={'Remove ' + f.name}
-                      onClick={() => {
-                        setFiles(files.filter((_, idx) => idx !== i));
-                        setResults({});
-                      }}
-                    >
-                      <X size={16} />
-                    </button>
-                  )
-                )}
-              </li>
+        <FormField label="Default payment terms for this upload">
+          <select value={paymentDays} onChange={(e) => setPaymentDays(e.target.value)}>
+            <option value="">Use document terms only</option>
+            {[0, 7, 14, 30, 45, 60, 90].map((days) => (
+              <option key={days} value={days}>
+                {days === 0 ? 'Due on invoice date' : days + ' days from invoice date'}
+              </option>
             ))}
-          </ul>
-        </>
+          </select>
+          <p className="muted">
+            Used when the invoice has no terms or due date. Dates count from each invoice’s date.
+          </p>
+        </FormField>
       )}
+      <ul className="upload-list">
+        {files.map((file, index) => (
+          <li key={index}>
+            <FileText size={17} />
+            <span>
+              {file.name}
+              <small>{(file.size / 1024).toFixed(0)} KB</small>
+            </span>
+            <button
+              className="icon-button"
+              aria-label={'Remove ' + file.name}
+              onClick={() => setFiles((rows) => rows.filter((_, i) => i !== index))}
+            >
+              <X size={16} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="notice">
+        The popup closes when you press Upload. Follow each document’s progress on the page. Keep
+        this tab open until file uploads finish.
+      </p>
       <div className="modal-actions">
-        <button className="button secondary" disabled={busy} onClick={() => void onDone()}>
-          Done
+        <button className="button secondary" onClick={() => void onDone()}>
+          Cancel
         </button>
         <button
           className="button primary"
-          disabled={
-            busy ||
-            !files.length ||
-            Object.values(results).filter((x) => x === 'Uploaded').length === files.length
-          }
-          onClick={() => void upload()}
+          disabled={!files.length}
+          onClick={() => onUpload(files, paymentDays, crypto.randomUUID())}
         >
-          {busy ? <LoaderCircle className="spin" size={17} /> : <UploadCloud size={17} />}Upload{' '}
-          {files.length || ''} files
+          <UploadCloud size={17} /> Upload {files.length || ''} files
         </button>
       </div>
     </>
   );
 }
+
 function DocumentPreview({ src, name }: { src: string; name: string }) {
   const [preview, setPreview] = useState<{ url: string; mime: string; data?: Uint8Array } | null>(
     null,

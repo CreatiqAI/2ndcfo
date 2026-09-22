@@ -1,5 +1,17 @@
 # Project change record
 
+## 23 September 2026 — upload progress on invoice pages
+
+- Upload immediately closes the picker. The parent page owns the transfer queue,
+  so unmounting the popup does not interrupt file uploads.
+- Money In, Money Out and Documents keep their current page; dashboard uploads
+  open Documents. Claim receipt uploads open Claims. No completion navigation.
+- Loading documents shows each file's queued/uploading/extracting/failed state
+  and retry controls. Completed extraction replaces progress with invoice records.
+- Preserved batch payment terms and claim attachment IDs. Background upload
+  refreshes cannot switch the user back to a previously selected workspace.
+- Typecheck and production build passed. No persistence changes.
+
 ## 22 September 2026 — Deleted records sidebar page
 
 - Moved Deleted records from the Claims/Money In/Money Out toolbar buttons and

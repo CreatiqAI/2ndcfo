@@ -1,5 +1,11 @@
 # Approvals and overdue invoices
 
+Press **Upload** to close the picker and track each file under **Loading documents**
+on the current invoice page. Uploads from Dashboard open Documents. Keep the tab
+open while files transfer; after upload, queued extraction is stored durably. Failed
+uploads or extraction show retry controls. Completed invoices appear in the normal
+list according to their extracted type. Closing the picker with Cancel starts no upload.
+
 During document upload, choose **Default payment terms for this upload**: invoice
 date, 7, 14, 30, 45, 60 or 90 calendar days. The choice applies to every sales or
 supplier invoice extracted from those files only when both printed terms and due
