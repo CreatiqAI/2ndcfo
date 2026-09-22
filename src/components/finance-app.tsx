@@ -229,7 +229,10 @@ function Modal({
     <dialog
       ref={dialog}
       aria-label={title}
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       className={wide ? 'modal wide' : 'modal'}
     >
       <header>
@@ -388,6 +391,19 @@ export function FinanceApp() {
     setSelectedInvoice(i);
     setModal('invoice');
   };
+  const moneyRows = state.invoices.filter(
+    (i) =>
+      !i.claimId &&
+      matches(i) &&
+      (page === 'Transactions'
+        ? i.reviewStatus === 'Approved'
+        : page === 'Money In'
+          ? i.kind === 'Sales Invoice'
+          : i.kind !== 'Sales Invoice') &&
+      (filter === 'All' ||
+        (filter === 'Overdue' ? i.isOverdue : i.paymentStatus === filter) ||
+        i.reviewStatus === filter),
+  );
   const invoiceTable = (rows: Invoice[], review = false) => (
     <div className="table-scroll">
       <table>
@@ -447,6 +463,12 @@ export function FinanceApp() {
                   </Badge>
                   {i.reviewStatus === 'Needs Review' && (
                     <span className="invoice-review-reason">{invoiceReviewReason(i)}</span>
+                  )}
+                  {i.isOverdue && (
+                    <span className="invoice-review-reason">
+                      Due {dateLabel(i.dueDate)} · {money(i.outstandingMinor, i.currency!)} still
+                      awaiting payment matching.
+                    </span>
                   )}
                 </div>
               </td>
@@ -952,7 +974,7 @@ export function FinanceApp() {
                         <Metric
                           label="Overdue"
                           value={money(s.overdue, state.company.currency)}
-                          note="Outstanding past due date"
+                          note="Past due date · payment not fully matched"
                           icon={<AlertTriangle size={18} />}
                         />
                       </>
@@ -969,6 +991,14 @@ export function FinanceApp() {
                         ? 'Sales invoices'
                         : 'Supplier bills & expenses'}
                   </h2>
+                  {canEdit && page !== 'Transactions' && (
+                    <ApproveAll
+                      key={`${companyId}:${page}`}
+                      rows={moneyRows}
+                      action={action}
+                      busy={busy}
+                    />
+                  )}
                   <a
                     className="button secondary"
                     href={exportLink(page === 'Transactions' ? 'transactions' : 'invoices')}
@@ -993,19 +1023,7 @@ export function FinanceApp() {
                     'Cancelled',
                   ]}
                 />
-                {invoiceTable(
-                  state.invoices.filter(
-                    (i) =>
-                      !i.claimId &&
-                      matches(i) &&
-                      (page === 'Transactions'
-                        ? i.reviewStatus === 'Approved'
-                        : page === 'Money In'
-                          ? i.kind === 'Sales Invoice'
-                          : i.kind !== 'Sales Invoice') &&
-                      (filter === 'All' || i.paymentStatus === filter || i.reviewStatus === filter),
-                  ),
-                )}
+                {invoiceTable(moneyRows)}
               </section>
             </>
           )}
@@ -1706,6 +1724,121 @@ function Login({
   );
 }
 type Action = (a: string, input?: Record<string, unknown>, success?: string) => Promise<unknown>;
+
+function ApproveAll({ rows, action, busy }: { rows: Invoice[]; action: Action; busy: boolean }) {
+  const candidates = rows.filter((i) =>
+    ['Ready', 'Needs Review', 'Draft'].includes(i.reviewStatus),
+  );
+  const [batch, setBatch] = useState<Invoice[] | null>(null);
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<{ id: string; message: string }[]>([]);
+  const [finished, setFinished] = useState(false);
+  const run = async () => {
+    if (!batch || running) return;
+    setRunning(true);
+    try {
+      for (const invoice of batch) {
+        let message = 'Approved';
+        try {
+          // Reuse normal approval: role, version, closed period, amount and duplicate checks.
+          await action(
+            'invoice.review',
+            {
+              id: invoice.id,
+              version: invoice.version,
+              operation: 'approve',
+              reason: '',
+            },
+            'Invoice approved. Cash has not changed.',
+          );
+        } catch (error) {
+          message =
+            error instanceof Error ? error.message : 'Approval failed. Review individually.';
+        }
+        setResults((previous) => [...previous, { id: invoice.id, message }]);
+      }
+      setFinished(true);
+    } finally {
+      setRunning(false);
+    }
+  };
+  return (
+    <>
+      <button
+        className="button primary"
+        disabled={busy || !candidates.length}
+        onClick={() => {
+          setBatch([...candidates]);
+          setResults([]);
+          setFinished(false);
+        }}
+      >
+        <CheckCheck size={16} /> Approve all ({candidates.length})
+      </button>
+      {batch && (
+        <Modal
+          title="Approve all listed invoices"
+          wide
+          onClose={() => {
+            if (!running) setBatch(null);
+          }}
+        >
+          <p>
+            Review these {batch.length} invoices from the current filtered list before confirming.
+            Approval locks the invoice details; it does not record payment. Incomplete invoices,
+            duplicates and closed periods still need individual review.
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Party</th>
+                  <th>Amount</th>
+                  <th>Review / result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batch.map((i) => (
+                  <tr key={i.id}>
+                    <td>{i.number || i.documentName}</td>
+                    <td>{i.party || 'Missing party'}</td>
+                    <td>{i.currency ? money(i.totalMinor, i.currency) : 'Currency missing'}</td>
+                    <td>
+                      {results.find((r) => r.id === i.id)?.message ||
+                        (i.reviewStatus === 'Ready' ? 'Ready' : invoiceReviewReason(i))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p role="status">
+            {running
+              ? `Processed ${results.length} of ${batch.length}…`
+              : finished
+                ? `${results.filter((r) => r.message === 'Approved').length} approved; ${results.filter((r) => r.message !== 'Approved').length} need individual review.`
+                : 'Rejected and already approved invoices are excluded.'}
+          </p>
+          <button
+            className="button primary"
+            disabled={running || busy}
+            onClick={() => {
+              if (finished) setBatch(null);
+              else void run();
+            }}
+          >
+            {running
+              ? 'Approving…'
+              : finished
+                ? 'Done'
+                : `Confirm approval of ${batch.length} invoices`}
+          </button>
+        </Modal>
+      )}
+    </>
+  );
+}
 function SimpleForm({
   fields,
   busy,

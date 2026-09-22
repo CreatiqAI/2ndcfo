@@ -1,5 +1,20 @@
 # Project change record
 
+## 22 September 2026 — approve all and overdue explanations
+
+- Money In/Out now offer bulk approval of the current filtered list for Finance
+  and Admin. A review dialog captures the list, reuses individual approval checks,
+  and reports each success/failure without overriding duplicate warnings.
+- Added overdue due-date/balance explanations. Unified summary and filter logic
+  so partially paid invoices past due also appear in the Overdue filter.
+- Confirmed the reported overdue amount against the active database in read-only
+  queries. Approval and payment remain separate; no financial data was changed.
+- Added regression coverage for overdue partial balances and full settlement.
+  No schema changes. Guide: `docs/operations/INVOICE_APPROVAL.md`.
+- Verification: 44 tests, typecheck and production build passed. Browser was at
+  the sign-in screen, so the authenticated bulk-approval dialog was not exercised
+  against live financial records.
+
 ## 22 September 2026 — statement month and automatic matching
 
 - Require an explicit month/year choice for each statement upload, with an

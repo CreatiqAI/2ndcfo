@@ -282,6 +282,22 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('explains overdue balances, including partial payments, and clears them on settlement', async () => {
+    const invoice = await approvedInvoice(admin, 116400);
+    const before = (await snapshot(admin)).invoices.find((i) => i.id === invoice.id)!;
+    expect(before.isOverdue).toBe(true);
+    expect(before.paymentStatus).toBe('Overdue');
+    const payment = await bank(116400);
+    await confirmAllocations(admin, allocate(payment.id, invoice.id, 40000));
+    const partial = (await snapshot(admin)).invoices.find((i) => i.id === invoice.id)!;
+    expect(partial.isOverdue).toBe(true);
+    expect(partial.paymentStatus).toBe('Partially Paid');
+    expect(partial.outstandingMinor).toBe(76400);
+    await confirmAllocations(admin, allocate(payment.id, invoice.id, 76400));
+    const paid = (await snapshot(admin)).invoices.find((i) => i.id === invoice.id)!;
+    expect(paid.isOverdue).toBe(false);
+    expect(paid.paymentStatus).toBe('Paid');
+  });
   it('rejects cross-origin state mutations', () => {
     expect(() =>
       checkOrigin(

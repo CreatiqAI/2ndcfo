@@ -158,6 +158,12 @@ export async function snapshot(actor: Actor) {
       documentName: docs.find((d) => d.id === x.documentId)?.name || '',
       paidMinor,
       outstandingMinor: cancellation ? 0 : (x.totalMinor || 0) - paidMinor,
+      isOverdue:
+        !cancellation &&
+        x.reviewStatus === 'Approved' &&
+        (x.totalMinor || 0) > paidMinor &&
+        !!x.dueDate &&
+        x.dueDate < new Date().toISOString().slice(0, 10),
       paymentStatus: cancellation
         ? 'Cancelled'
         : x.reviewStatus === 'Approved'
@@ -289,11 +295,7 @@ export async function snapshot(actor: Actor) {
       total: sumMinor(list.map((x) => x.totalMinor || 0)),
       paid: sumMinor(list.map((x) => x.paidMinor)),
       outstanding: sumMinor(list.map((x) => x.outstandingMinor)),
-      overdue: sumMinor(
-        list
-          .filter((x) => x.dueDate && x.dueDate < new Date().toISOString().slice(0, 10))
-          .map((x) => x.outstandingMinor),
-      ),
+      overdue: sumMinor(list.filter((x) => x.isOverdue).map((x) => x.outstandingMinor)),
     };
   });
   return {
