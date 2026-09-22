@@ -19,6 +19,7 @@ import {
   claimPortalState,
 } from '../src/server/claim-links';
 import { trashRecord } from '../src/server/record-trash';
+import { myrRate } from '../src/server/fx';
 import { createClaim, changeClaim } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
@@ -157,6 +158,7 @@ beforeAll(async () => {
   process.env.DATABASE_MODE = 'local';
   process.env.LOCAL_DATA_DIR = await mkdtemp(path.join(os.tmpdir(), '2ndcfo-test-'));
   process.env.AI_PROVIDER = 'mock';
+  process.env.FX_PROVIDER = 'disabled';
   admin = await makeUser('admin@test.invalid');
   other = await makeUser('other@test.invalid');
   employee = await makeUser('employee@test.invalid', 'Employee', 'Operations', admin.companyId);
@@ -290,6 +292,56 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('shows missing currency as MYR and persists the default on approval', async () => {
+    const row = await draftInvoice();
+    await (
+      await getDb()
+    )
+      .update(s.invoices)
+      .set({ currency: null })
+      .where(eq(s.invoices.id, row.id));
+    const display = (await snapshot(admin)).invoices.find((i) => i.id === row.id)!;
+    expect(display.currency).toBe('MYR');
+    expect(display.myrTotalMinor).toBe(row.totalMinor);
+    const approved = await reviewInvoice(admin, {
+      id: row.id,
+      version: row.version,
+      action: 'approve',
+    });
+    expect(approved.currency).toBe('MYR');
+  });
+  it('fetches and retains dated MYR reference rates without changing foreign amounts', async () => {
+    const mock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ base: 'USD', quote: 'MYR', date: '2026-07-28', rate: 4.25 }),
+          { status: 200 },
+        ),
+      );
+    delete process.env.FX_PROVIDER;
+    try {
+      const rate = await myrRate('USD', '2026-07-28');
+      expect(rate?.rate).toBe('4.25');
+      await myrRate('USD', '2026-07-28');
+      expect(mock).toHaveBeenCalledTimes(1);
+      const row = await draftInvoice();
+      await (
+        await getDb()
+      )
+        .update(s.invoices)
+        .set({ currency: 'USD', invoiceDate: '2026-07-28' })
+        .where(eq(s.invoices.id, row.id));
+      process.env.FX_PROVIDER = 'disabled';
+      const display = (await snapshot(admin)).invoices.find((i) => i.id === row.id)!;
+      expect(display.totalMinor).toBe(row.totalMinor);
+      expect(display.currency).toBe('USD');
+      expect(display.myrTotalMinor).toBe(row.totalMinor! * 4.25);
+    } finally {
+      mock.mockRestore();
+      process.env.FX_PROVIDER = 'disabled';
+    }
+  });
   it('redeems a claim link only once and limits its session to one employee claim', async () => {
     await expect(createClaimLink(employee, {})).rejects.toThrow('role');
     const link = await createClaimLink(admin, {
@@ -502,7 +554,7 @@ describe('Identity, approval and tenant isolation', () => {
   });
   it('requires verified fields before approval and prevents stale edits', async () => {
     const i = await draftInvoice();
-    await (await getDb()).update(s.invoices).set({ currency: null }).where(eq(s.invoices.id, i.id));
+    await (await getDb()).update(s.invoices).set({ party: null }).where(eq(s.invoices.id, i.id));
     await expect(reviewInvoice(admin, { id: i.id, version: 1, action: 'approve' })).rejects.toThrow(
       'verified',
     );

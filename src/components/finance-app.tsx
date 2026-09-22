@@ -80,6 +80,7 @@ type UploadEntry = {
   claimId?: string;
   batchId: string;
   paymentDays: string;
+  uploadCurrency: string;
   status: 'queued' | 'uploading' | 'uploaded' | 'failed';
   error?: string;
   documentId?: string;
@@ -386,6 +387,7 @@ export function FinanceApp() {
       const form = new FormData();
       form.set('file', entry.file);
       form.set('batchId', entry.batchId);
+      form.set('uploadCurrency', entry.uploadCurrency);
       if (entry.claimId) form.set('claimId', entry.claimId);
       else if (entry.paymentDays !== '') form.set('defaultPaymentTermDays', entry.paymentDays);
       try {
@@ -417,7 +419,12 @@ export function FinanceApp() {
       }
     }
   };
-  const startUploads = (files: File[], paymentDays: string, batchId: string) => {
+  const startUploads = (
+    files: File[],
+    paymentDays: string,
+    batchId: string,
+    uploadCurrency: string,
+  ) => {
     const claimId = selectedClaim?.id;
     const entries: UploadEntry[] = files.map((file) => ({
       id: crypto.randomUUID(),
@@ -425,6 +432,7 @@ export function FinanceApp() {
       companyId,
       claimId,
       paymentDays,
+      uploadCurrency,
       batchId,
       status: 'queued',
     }));
@@ -597,6 +605,13 @@ export function FinanceApp() {
               </td>
               <td className="amount">
                 {money(i.totalMinor, i.currency || state.company.currency)}
+                {i.currency !== 'MYR' && (
+                  <small>
+                    {i.myrTotalMinor !== null
+                      ? `${money(i.myrTotalMinor, 'MYR')} equivalent · 1 ${i.currency} = ${i.myrRate} MYR · ${i.myrRateDate} (${i.myrRateSource})`
+                      : 'MYR conversion unavailable — check invoice date or retry later.'}
+                  </small>
+                )}
                 {i.paidMinor > 0 && i.outstandingMinor > 0 && (
                   <small>{money(i.outstandingMinor, i.currency!)} remaining</small>
                 )}
@@ -2401,12 +2416,13 @@ function UploadForm({
   notify,
 }: {
   claimId?: string;
-  onUpload: (files: File[], paymentDays: string, batchId: string) => void;
+  onUpload: (files: File[], paymentDays: string, batchId: string, uploadCurrency: string) => void;
   onDone: () => Promise<unknown>;
   notify: (s: string, e?: boolean) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]),
     [paymentDays, setPaymentDays] = useState(''),
+    [uploadCurrency, setUploadCurrency] = useState('MYR'),
     [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const add = (incoming: FileList | null) => {
@@ -2456,6 +2472,20 @@ function UploadForm({
         />
       </div>
       {!claimId && (
+        <FormField label="Document currency">
+          <select value={uploadCurrency} onChange={(e) => setUploadCurrency(e.target.value)}>
+            {['MYR', 'USD', 'SGD', 'EUR', 'GBP', 'AUD', 'CAD', 'HKD'].map((code) => (
+              <option key={code}>{code}</option>
+            ))}
+          </select>
+          <p className="muted">
+            MYR is the default when currency is missing. Detected foreign currencies are retained.
+            Selecting another currency applies it to this upload. Foreign invoices show an automatic
+            MYR equivalent using the invoice-date reference rate.
+          </p>
+        </FormField>
+      )}
+      {!claimId && (
         <FormField label="Default payment terms for this upload">
           <select value={paymentDays} onChange={(e) => setPaymentDays(e.target.value)}>
             <option value="">Use document terms only</option>
@@ -2499,7 +2529,7 @@ function UploadForm({
         <button
           className="button primary"
           disabled={!files.length}
-          onClick={() => onUpload(files, paymentDays, crypto.randomUUID())}
+          onClick={() => onUpload(files, paymentDays, crypto.randomUUID(), uploadCurrency)}
         >
           <UploadCloud size={17} /> Upload {files.length || ''} files
         </button>

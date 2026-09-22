@@ -7,6 +7,7 @@ import { ExtractionFailure, provider } from './provider';
 import { detectDuplicate } from '../duplicates/detector';
 import { categorisationDecision } from '../categorisation/policy';
 import { uploadPaymentTerms } from '../../lib/invoice-due-date';
+import { invoiceCurrency } from '../../lib/currency';
 export async function processOne(companyId?: string, claimId?: string): Promise<boolean> {
   const db = await getDb();
   const job = await db.transaction(async (tx) => {
@@ -80,9 +81,11 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
           const total = amount(item.total),
             subtotal = amount(item.subtotal),
             tax = amount(item.tax);
-          const currency = currencies.includes(item.currency as (typeof currencies)[number])
-            ? item.currency
-            : null;
+          let currency = invoiceCurrency(item.currency, doc.uploadCurrency);
+          if (!currencies.includes(currency as (typeof currencies)[number])) {
+            errors.push('Unsupported detected currency; verify upload currency');
+            currency = doc.uploadCurrency;
+          }
           const duplicate = detectDuplicate(
             {
               number: item.number,

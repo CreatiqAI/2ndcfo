@@ -1,5 +1,25 @@
 # Approvals and overdue invoices
 
+## Currency and MYR equivalents
+
+Document upload includes a currency selector, defaulting to MYR. With that default,
+explicit foreign currency detected in the document is retained; missing currency
+uses MYR. Selecting another currency explicitly applies it to that upload batch.
+Review can correct the currency before approval. Older blank-currency invoices
+display MYR and save the default on review/approval, without rewriting approved data.
+
+Foreign invoice rows show a MYR equivalent using the invoice-date ECB reference
+rate through [Frankfurter](https://frankfurter.dev/). The actual rate date and source
+are displayed and cached; weekends may use an earlier rate (maximum 7 days old).
+Missing/invalid/future invoice dates or unavailable rates show conversion unavailable,
+never an invented rate. Conversion uses exact integer arithmetic rounded to MYR cents.
+
+Original amounts and currencies remain intact for matching, approvals and exports.
+The MYR equivalent is a reference valuation, not a bank payment or FX settlement;
+existing cash/summary figures remain workspace-currency only. No private invoice
+details or amounts are sent to the rate API—only currency and date. Local Windows
+environments with a trusted corporate certificate may need Node's `--use-system-ca`.
+
 Press **Upload** to close the picker and track each file under **Loading documents**
 on the current invoice page. Uploads from Dashboard open Documents. Keep the tab
 open while files transfer; after upload, queued extraction is stored durably. Failed

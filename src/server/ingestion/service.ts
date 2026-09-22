@@ -3,15 +3,29 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDb } from '../db';
 import { claims, documents, jobs } from '../db/schema';
-import { type Actor, assert, audit, lockCompany, openPeriod, requireRole } from '../core';
+import {
+  type Actor,
+  assert,
+  audit,
+  lockCompany,
+  openPeriod,
+  requireRole,
+  currencies,
+} from '../core';
 import { inspectFile, imageFingerprint, sha256, storeOriginal } from './storage';
 export async function uploadDocument(
   actor: Actor,
   file: { name: string; data: Buffer },
-  input: { batchId?: string; claimId?: string; defaultPaymentTermDays?: number },
+  input: {
+    batchId?: string;
+    claimId?: string;
+    defaultPaymentTermDays?: number;
+    uploadCurrency?: string;
+  },
 ) {
   if (!input.claimId) requireRole(actor, ['Admin', 'Finance']);
   const batchId = z.uuid().parse(input.batchId || randomUUID());
+  const uploadCurrency = z.enum(currencies).parse(input.uploadCurrency || 'MYR');
   const defaultPaymentTermDays = z
     .number()
     .int()
@@ -80,6 +94,7 @@ export async function uploadDocument(
         imageHash,
         purpose: input.claimId ? 'claim' : 'invoice',
         defaultPaymentTermDays,
+        uploadCurrency,
       })
       .returning();
     await tx.insert(jobs).values({ companyId: actor.companyId, documentId: doc.id });
@@ -88,6 +103,7 @@ export async function uploadDocument(
       hash,
       batchId,
       defaultPaymentTermDays,
+      uploadCurrency,
     });
     return { id: doc.id, name: doc.name };
   });

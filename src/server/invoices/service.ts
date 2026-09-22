@@ -77,7 +77,10 @@ export async function reviewInvoice(actor: Actor, input: unknown) {
       await openPeriod(tx, actor.companyId, claim.month);
     } else requireRole(actor, ['Admin', 'Finance']);
     await openPeriod(tx, actor.companyId, before.invoiceDate);
-    const patch: Partial<typeof invoices.$inferInsert> = { version: before.version + 1 };
+    const patch: Partial<typeof invoices.$inferInsert> = {
+      version: before.version + 1,
+      ...(!before.currency ? { currency: 'MYR' } : {}),
+    };
     if (data.fields) {
       const f = data.fields;
       for (const v of [f.invoiceDate, f.dueDate])
@@ -100,7 +103,7 @@ export async function reviewInvoice(actor: Actor, input: unknown) {
         subtotalMinor: f.subtotal ? minor(f.subtotal) : null,
         taxMinor: f.tax ? minor(f.tax) : null,
         totalMinor: f.total ? minor(f.total) : null,
-        currency: f.currency || null,
+        currency: f.currency || 'MYR',
         category: f.category || null,
       });
       assert(patch.totalMinor == null || patch.totalMinor > 0, 'Total must be positive.');
@@ -127,6 +130,10 @@ export async function reviewInvoice(actor: Actor, input: unknown) {
     }
     if (data.action === 'approve') {
       requireRole(actor, ['Admin', 'Finance']);
+      assert(
+        currencies.includes(merged.currency as (typeof currencies)[number]),
+        'Select a supported currency before approval.',
+      );
       assert(
         merged.party &&
           merged.invoiceDate &&

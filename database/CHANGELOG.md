@@ -1,5 +1,14 @@
 # Database change record
 
+## 23 September 2026 — invoice currency defaults and FX cache
+
+Applied `0008_invoice_currency.sql` to active `finance` schema. Added immutable
+upload metadata `documents.upload_currency` (MYR default, supported currency check)
+and `fx_rates` for published invoice-date MYR reference rates. FX table has RLS;
+no public access policies. Existing approved invoice amounts/currencies are unchanged.
+Verified migration ledger and RLS, and fetched/cached a live USD/MYR reference rate.
+Recovery: revert application changes while retaining additive column/table values.
+
 ## 22 September 2026 — one-time claim links and recoverable deletion
 
 Applied `0007_claim_links_and_trash.sql` to active project schema `finance`.
@@ -55,5 +64,6 @@ read checks passed. Old project retained; backup recorded in private
 | `0005_upload_payment_terms.sql` | Durable default payment days per upload | Applied |
 | `0006_claim_auto_totals.sql` | Optional automatic receipt totals for claims | Applied |
 | `0007_claim_links_and_trash.sql` | Claim-only links and recoverable record deletion | Applied |
+| `0008_invoice_currency.sql` | Upload currency defaults and published MYR FX cache | Applied |
 
-The current cloud database records these seven versions in `finance.schema_migrations`.
+The current cloud database records these eight versions in `finance.schema_migrations`.

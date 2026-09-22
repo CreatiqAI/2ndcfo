@@ -14,6 +14,15 @@ import {
 const id = () => uuid('id').primaryKey().defaultRandom();
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const money = (name: string) => bigint(name, { mode: 'number' });
+export const fxRates = pgTable('fx_rates', {
+  key: text('key').primaryKey(),
+  currency: text('currency').notNull(),
+  requestedDate: date('requested_date').notNull(),
+  rateDate: date('rate_date').notNull(),
+  rate: text('rate').notNull(),
+  source: text('source').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+});
 export const claimLinks = pgTable('claim_links', {
   id: id(),
   companyId: uuid('company_id').notNull(),
@@ -121,6 +130,7 @@ export const documents = pgTable(
     imageHash: text('image_hash'),
     purpose: text('purpose').notNull(),
     defaultPaymentTermDays: integer('default_payment_term_days'),
+    uploadCurrency: text('upload_currency').notNull().default('MYR'),
     createdAt: created(),
   },
   (t) => [unique().on(t.companyId, t.id), index().on(t.companyId, t.hash)],

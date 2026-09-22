@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         : await uploadDocument(actor, input, {
             batchId: String(body.get('batchId') || ''),
             claimId: body.get('claimId') ? String(body.get('claimId')) : undefined,
+            uploadCurrency: String(body.get('uploadCurrency') || 'MYR'),
             defaultPaymentTermDays: body.get('defaultPaymentTermDays')
               ? Number(body.get('defaultPaymentTermDays'))
               : undefined,

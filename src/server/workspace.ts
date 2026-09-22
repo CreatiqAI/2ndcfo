@@ -19,6 +19,8 @@ import { suggestGroups, suggestMatches, type Obligation } from './reconciliation
 import { validateStatement } from './banking/parser';
 import { bankDraftSchema } from './extraction/provider';
 import { invoiceDueDate } from '../lib/invoice-due-date';
+import { convertMinor } from '../lib/currency';
+import { myrRate } from './fx';
 export async function workspaceList(userId: string) {
   return (await getDb())
     .select({
@@ -151,43 +153,60 @@ export async function snapshot(actor: Actor) {
     .select()
     .from(s.recordTrash)
     .where(and(eq(s.recordTrash.companyId, actor.companyId), eq(s.recordTrash.deleted, true)));
-  const invoiceRows = invoices.map((x) => {
-    const paidMinor = sumMinor(
-      allocations.filter((a) => a.invoiceId === x.id).map((b) => b.amountMinor),
-    );
-    const cancellation = cancellations.find((c) => c.invoiceId === x.id);
-    const due = invoiceDueDate(x);
-    return {
-      ...x,
-      effectiveDueDate: due.date,
-      deleted: trash.some((t) => t.invoiceId === x.id || (x.claimId && t.claimId === x.claimId)),
-      dueDateSource: due.source,
-      lifecycle: cancellation ? 'Cancelled' : x.lifecycle,
-      cancellationReason: cancellation?.reason || null,
-      documentName: docs.find((d) => d.id === x.documentId)?.name || '',
-      paidMinor,
-      outstandingMinor: cancellation ? 0 : (x.totalMinor || 0) - paidMinor,
-      isOverdue:
-        !cancellation &&
-        x.reviewStatus === 'Approved' &&
-        (x.totalMinor || 0) > paidMinor &&
-        !!due.date &&
-        due.date < new Date().toISOString().slice(0, 10),
-      paymentStatus: cancellation
-        ? 'Cancelled'
-        : x.reviewStatus === 'Approved'
-          ? paymentStatus(x.totalMinor || 0, paidMinor, due.date)
-          : x.reviewStatus === 'Rejected'
-            ? 'Rejected'
-            : 'Draft',
-      bankMatch:
-        paidMinor >= (x.totalMinor || Infinity)
-          ? 'Matched'
-          : paidMinor > 0
-            ? 'Partial'
-            : 'Unmatched',
-    };
-  });
+  const invoiceRows = await Promise.all(
+    invoices.map(async (x) => {
+      const currency = x.currency || 'MYR';
+      const fx = x.totalMinor !== null ? await myrRate(currency, x.invoiceDate) : null;
+      let myrTotalMinor: number | null = currency === 'MYR' ? x.totalMinor : null;
+      if (fx && x.totalMinor !== null) {
+        try {
+          myrTotalMinor = convertMinor(x.totalMinor, fx.rate);
+        } catch {
+          /* Display unavailable on overflow. */
+        }
+      }
+      const paidMinor = sumMinor(
+        allocations.filter((a) => a.invoiceId === x.id).map((b) => b.amountMinor),
+      );
+      const cancellation = cancellations.find((c) => c.invoiceId === x.id);
+      const due = invoiceDueDate(x);
+      return {
+        ...x,
+        currency,
+        myrTotalMinor,
+        myrRate: fx?.rate || null,
+        myrRateDate: fx?.rateDate || null,
+        myrRateSource: fx?.source || null,
+        effectiveDueDate: due.date,
+        deleted: trash.some((t) => t.invoiceId === x.id || (x.claimId && t.claimId === x.claimId)),
+        dueDateSource: due.source,
+        lifecycle: cancellation ? 'Cancelled' : x.lifecycle,
+        cancellationReason: cancellation?.reason || null,
+        documentName: docs.find((d) => d.id === x.documentId)?.name || '',
+        paidMinor,
+        outstandingMinor: cancellation ? 0 : (x.totalMinor || 0) - paidMinor,
+        isOverdue:
+          !cancellation &&
+          x.reviewStatus === 'Approved' &&
+          (x.totalMinor || 0) > paidMinor &&
+          !!due.date &&
+          due.date < new Date().toISOString().slice(0, 10),
+        paymentStatus: cancellation
+          ? 'Cancelled'
+          : x.reviewStatus === 'Approved'
+            ? paymentStatus(x.totalMinor || 0, paidMinor, due.date)
+            : x.reviewStatus === 'Rejected'
+              ? 'Rejected'
+              : 'Draft',
+        bankMatch:
+          paidMinor >= (x.totalMinor || Infinity)
+            ? 'Matched'
+            : paidMinor > 0
+              ? 'Partial'
+              : 'Unmatched',
+      };
+    }),
+  );
   const claimRows = claims.map((c) => {
     const paidMinor = sumMinor(
       allocations.filter((a) => a.claimId === c.id).map((b) => b.amountMinor),

@@ -1,5 +1,18 @@
 # Project change record
 
+## 23 September 2026 — default MYR and foreign-currency conversion
+
+- Added currency choice to upload and its persistent audit metadata. Missing
+  invoice currency defaults to MYR; explicit foreign selection applies to the batch.
+- Foreign invoices show original amounts plus automatically calculated MYR
+  reference equivalents, with rate/date/source. Rates use Frankfurter's ECB feed
+  and a durable cache; amounts/currencies remain intact for financial matching.
+- Missing currency no longer creates a missing-currency explanation for existing
+  invoices; the default is persisted through normal review/approval checks.
+- Applied/verified migration 0008 and a live reference-rate request/cache. All
+  68 tests, typecheck and production build passed, including currency precedence,
+  exact rounding, rate caching and original-amount preservation.
+
 ## 23 September 2026 — upload progress on invoice pages
 
 - Upload immediately closes the picker. The parent page owns the transfer queue,
