@@ -1,5 +1,12 @@
 # Project change record
 
+## 22 September 2026 — Deleted records sidebar page
+
+- Moved Deleted records from the Claims/Money In/Money Out toolbar buttons and
+  modal to a dedicated sidebar page, with an empty state and existing Restore actions.
+- Finance/Admin access and evidence retention are unchanged. No database changes.
+- Verification: typecheck and production build passed; removed old modal/button references.
+
 ## 22 September 2026 — employee links and Delete
 
 - Added one-time employee claim links with Copy link and Open email draft.

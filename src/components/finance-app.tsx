@@ -33,6 +33,7 @@ import {
   X,
   AlertTriangle,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import type { snapshot } from '@/server/workspace';
 import { PdfPreview } from './pdf-preview';
@@ -88,6 +89,7 @@ const nav = [
   ['Reports', BarChart3],
   ['AI Finance', Sparkles],
   ['Documents', FolderOpen],
+  ['Deleted records', Trash2],
   ['Settings', Settings2],
 ] as const;
 const money = (amount: number | null | undefined, currency = 'MYR') =>
@@ -634,21 +636,23 @@ export function FinanceApp() {
         </div>
         <span className="nav-label">WORKSPACE</span>
         <nav>
-          {nav.map(([label, Icon]) => (
-            <button
-              key={label}
-              className={page === label ? 'active' : ''}
-              aria-current={page === label ? 'page' : undefined}
-              onClick={() => navigate(label)}
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-              {label === 'Documents' && needReview.length > 0 && <em>{needReview.length}</em>}
-              {['Budget', 'Reports', 'AI Finance'].includes(label) && (
-                <span className="soon-label">Soon</span>
-              )}
-            </button>
-          ))}
+          {nav
+            .filter(([label]) => label !== 'Deleted records' || canEdit)
+            .map(([label, Icon]) => (
+              <button
+                key={label}
+                className={page === label ? 'active' : ''}
+                aria-current={page === label ? 'page' : undefined}
+                onClick={() => navigate(label)}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+                {label === 'Documents' && needReview.length > 0 && <em>{needReview.length}</em>}
+                {['Budget', 'Reports', 'AI Finance'].includes(label) && (
+                  <span className="soon-label">Soon</span>
+                )}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="trust-note">
@@ -727,6 +731,7 @@ export function FinanceApp() {
                   {
                     Dashboard: 'A clear view of what’s done, what’s pending, and what needs you.',
                     'Money In': 'Review your sales invoices and keep track of customer payments.',
+                    'Deleted records': 'Review deleted records and restore them to your workspace.',
                     'Money Out': 'Stay on top of supplier bills and business expenses.',
                     Claims: 'From receipt to reimbursement, with every approval recorded.',
                     'Bank Matching': 'Connect the documents to the money. You make the final call.',
@@ -765,11 +770,6 @@ export function FinanceApp() {
                 <button className="button primary" onClick={() => setModal('claim-create')}>
                   <Plus size={17} />
                   New claim
-                </button>
-              )}
-              {canEdit && ['Claims', 'Money In', 'Money Out'].includes(page) && (
-                <button className="button secondary" onClick={() => setModal('trash')}>
-                  Deleted records
                 </button>
               )}
               {page === 'Bank Matching' && canEdit && (
@@ -1332,6 +1332,55 @@ export function FinanceApp() {
               exportLink={exportLink('reconciliation')}
             />
           )}
+          {page === 'Deleted records' && canEdit && (
+            <section className="panel" style={{ padding: 24 }}>
+              <h2>Deleted records</h2>
+              {!state.invoices.some((i) => i.deleted && !i.claimId) &&
+                !state.claims.some((c) => c.deleted) && (
+                  <Empty title="No deleted records">
+                    Records you delete will appear here for restoration.
+                  </Empty>
+                )}
+              <p>
+                These records are hidden from active lists. Original evidence and posted financial
+                totals are retained.
+              </p>
+              {[
+                ...state.invoices
+                  .filter((i) => i.deleted && !i.claimId)
+                  .map((i) => ({
+                    id: i.id,
+                    type: 'invoice',
+                    name: i.number || i.party || 'Invoice',
+                  })),
+                ...state.claims
+                  .filter((c) => c.deleted)
+                  .map((c) => ({
+                    id: c.id,
+                    type: 'claim',
+                    name: `${c.employeeName} claim — ${c.title}`,
+                  })),
+              ].map((record) => (
+                <p key={record.id}>
+                  {record.name}{' '}
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void action('record.trash', {
+                        ...record,
+                        deleted: false,
+                        reason: 'Restored from deleted records',
+                      }).catch(() => {})
+                    }
+                  >
+                    Restore
+                  </button>
+                </p>
+              ))}
+            </section>
+          )}
+
           {page === 'Settings' && (
             <div className="settings-grid">
               <section className="panel settings-panel">
@@ -1527,43 +1576,6 @@ export function FinanceApp() {
               close();
             }}
           />
-        </Modal>
-      )}
-      {modal === 'trash' && (
-        <Modal title="Deleted records" onClose={close} wide>
-          <p>
-            These records are hidden from active lists. Original evidence and posted financial
-            totals are retained.
-          </p>
-          {[
-            ...state.invoices
-              .filter((i) => i.deleted && !i.claimId)
-              .map((i) => ({ id: i.id, type: 'invoice', name: i.number || i.party || 'Invoice' })),
-            ...state.claims
-              .filter((c) => c.deleted)
-              .map((c) => ({
-                id: c.id,
-                type: 'claim',
-                name: `${c.employeeName} claim — ${c.title}`,
-              })),
-          ].map((record) => (
-            <p key={record.id}>
-              {record.name}{' '}
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() =>
-                  void action('record.trash', {
-                    ...record,
-                    deleted: false,
-                    reason: 'Restored from deleted records',
-                  }).catch(() => {})
-                }
-              >
-                Restore
-              </button>
-            </p>
-          ))}
         </Modal>
       )}
       {modal === 'claim-link' && (

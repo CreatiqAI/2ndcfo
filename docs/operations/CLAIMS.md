@@ -48,7 +48,7 @@ submissions marked Needs Review. Finance uses the existing approval workflow.
 
 Finance/Admin can delete invoices in Money In/Out and delete claims inside the
 claim details. A reason and confirmation are required. **Deleted records** offers
-Restore. These are reversible removals from active lists, available for approved,
+Restore from its own sidebar page (Finance/Admin only). These are reversible removals from active lists, available for approved,
 paid and draft records. Claim receipts stay with the bundle and original files
 remain retained. Posted totals, allocations and exports preserve accounting history;
 deletion does not cancel invoices or reverse payments. Use the normal cancellation
