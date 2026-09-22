@@ -37,6 +37,7 @@ import {
 import type { snapshot } from '@/server/workspace';
 import { PdfPreview } from './pdf-preview';
 import { DocumentCalendar } from './document-calendar';
+import { monthLabel } from '@/lib/document-months';
 type Json<T> = T extends Date
   ? string
   : T extends Array<infer U>
@@ -1414,13 +1415,15 @@ export function FinanceApp() {
         <Modal title="Import bank statement" onClose={close}>
           <BankUpload
             state={state}
-            month={month}
             busy={busy}
             action={action}
             notify={notify}
             onDone={async (id) => {
               const next = await refresh(companyId);
-              setSelectedStatement(next!.state.statements.find((x) => x.id === id)!);
+              const statement = next!.state.statements.find((x) => x.id === id)!;
+              setMonth(statement.month);
+              navigate('Bank Matching');
+              setSelectedStatement(statement);
               setModal('statement');
             }}
           />
@@ -2498,20 +2501,19 @@ function ClaimDetail({
 }
 function BankUpload({
   state,
-  month,
   busy,
   action,
   notify,
   onDone,
 }: {
   state: State;
-  month: string;
   busy: boolean;
   action: Action;
   notify: (s: string, e?: boolean) => void;
   onDone: (id: string) => Promise<unknown>;
 }) {
   const [uploading, setUploading] = useState(false),
+    [statementMonth, setStatementMonth] = useState(''),
     [error, setError] = useState(''),
     [newAccount, setNewAccount] = useState(!state.accounts.length);
   return (
@@ -2567,9 +2569,22 @@ function BankUpload({
           <button type="button" className="text-button" onClick={() => setNewAccount(true)}>
             + Add another account
           </button>
-          <FormField label="Statement month">
-            <input name="month" type="month" defaultValue={month} required />
+          <FormField label="Which month and year is this bank statement for?">
+            <input
+              name="month"
+              type="month"
+              value={statementMonth}
+              onChange={(e) => setStatementMonth(e.target.value)}
+              required
+              aria-describedby="statement-month-help"
+            />
           </FormField>
+          <p id="statement-month-help" className="muted" aria-live="polite">
+            {statementMonth
+              ? `After import, we’ll suggest matches with approved invoices and claims from ${monthLabel(statementMonth)}.`
+              : 'Choose the month printed on your statement, even if you are uploading it later.'}{' '}
+            Transactions outside this month must be corrected before import.
+          </p>
           <FormField label="Bank statement">
             <input type="file" name="file" accept=".pdf,.csv,.xlsx" required />
           </FormField>
@@ -2908,7 +2923,11 @@ function Reconciliation({
             <h2>
               Suggested matches <span className="count">{suggestions.length}</span>
             </h2>
-            <p>Match signals explain each suggestion. Nothing is confirmed automatically.</p>
+            <p>
+              Automatically suggested from approved invoices and claims dated in {monthLabel(month)}
+              . Confirm a suggestion to record payment. For older invoices, use Manual / split /
+              combine.
+            </p>
           </div>
           {canEdit && (
             <button className="button secondary" onClick={() => setManual(true)}>
@@ -3087,7 +3106,8 @@ function Reconciliation({
         <Modal title="Confirm payment allocations" onClose={() => setManual(false)} wide>
           <p>
             Use several rows to split one bank payment across invoices, or combine several bank
-            payments for one invoice. Enter the amount allocated on each row.
+            payments for one invoice. Enter the amount allocated on each row. All months are
+            available here, including older invoices paid this month.
           </p>
           <form
             onSubmit={(e) => {

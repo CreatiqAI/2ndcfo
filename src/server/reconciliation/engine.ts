@@ -1,4 +1,5 @@
 import { normal } from '../core';
+import { documentMonth } from '../../lib/document-months';
 export type Obligation = {
   id: string;
   type: 'invoice' | 'claim';
@@ -28,6 +29,12 @@ export type Suggestion = {
   confidence: number;
   signals: string[];
 };
+// Automatic suggestions stay within the statement's validated calendar month.
+// Manual allocations can still settle invoices from earlier periods.
+function sameMonth(target: Obligation, bank: Movement) {
+  const month = documentMonth(target.date);
+  return month !== null && month === documentMonth(bank.date);
+}
 export function scoreMatch(
   target: Obligation,
   bank: Movement,
@@ -112,6 +119,7 @@ export function suggestMatches(
   return targets
     .flatMap((t) =>
       banks.flatMap((b) => {
+        if (!sameMonth(t, b)) return [];
         const historical = [...(history.get(t.party) || [])].some((x) =>
           normal(b.description).includes(x),
         );
@@ -146,7 +154,7 @@ function subset<T>(rows: T[], value: (row: T) => number, total: number): T[] | n
 export function suggestGroups(targets: Obligation[], banks: Movement[]): SuggestionGroup[] {
   const groups: SuggestionGroup[] = [];
   for (const t of targets) {
-    const candidates = banks.filter((b) => scoreMatch(t, b));
+    const candidates = banks.filter((b) => sameMonth(t, b) && scoreMatch(t, b));
     const combined = subset(candidates, (b) => b.remaining, t.outstanding);
     if (combined) {
       const items = combined.map((b) => ({ ...scoreMatch(t, b)!, amountMinor: b.remaining }));
@@ -159,7 +167,7 @@ export function suggestGroups(targets: Obligation[], banks: Movement[]): Suggest
     }
   }
   for (const b of banks) {
-    const candidates = targets.filter((t) => scoreMatch(t, b));
+    const candidates = targets.filter((t) => sameMonth(t, b) && scoreMatch(t, b));
     const split = subset(candidates, (t) => t.outstanding, b.remaining);
     if (split) {
       const items = split.map((t) => ({ ...scoreMatch(t, b)!, amountMinor: t.outstanding }));

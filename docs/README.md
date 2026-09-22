@@ -2,6 +2,8 @@
 
 Start with [project structure](PROJECT_STRUCTURE.md) and [current delivery status](records/DELIVERY_STATUS.md).
 
+See [monthly bank matching](operations/BANK_MATCHING.md) for statement upload and payment review.
+
 | Folder | Contents |
 | --- | --- |
 | [architecture/](architecture/) | [System architecture](architecture/SYSTEM_ARCHITECTURE.md), [database architecture](architecture/DATABASE_ARCHITECTURE.md) |

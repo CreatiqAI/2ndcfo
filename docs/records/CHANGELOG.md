@@ -1,5 +1,21 @@
 # Project change record
 
+## 22 September 2026 — statement month and automatic matching
+
+- Require an explicit month/year choice for each statement upload, with an
+  explanation of the matching period. Upload opens Bank Matching at the stored
+  statement month and clears unrelated search/status filters.
+- Automatic single, split and combined suggestions use the same calendar month
+  and year as the bank rows. Existing import validation blocks out-of-month rows.
+- Preserve manual allocations across periods for late payments. Human confirmation
+  remains required before recording any payment.
+- Added month/year boundary, invalid date, split/combine and statement validation
+  regressions. Uses existing fields; no database migration is required.
+- Operating guide: `docs/operations/BANK_MATCHING.md`.
+- Verification: 43 tests passed, typecheck and production build passed. An isolated
+  browser preview server was blocked by automatic command approval, so this
+  change has not received a browser walkthrough.
+
 ## 22 September 2026 — Documents month calendar
 
 - Added a responsive 12-month calendar, year navigation, invoice counts and dated
