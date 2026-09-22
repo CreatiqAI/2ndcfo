@@ -14,6 +14,22 @@ import {
 const id = () => uuid('id').primaryKey().defaultRandom();
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const money = (name: string) => bigint(name, { mode: 'number' });
+export const salarySlips = pgTable(
+  'salary_slips',
+  {
+    id: id(),
+    companyId: uuid('company_id').notNull(),
+    employeeId: uuid('employee_id').notNull(),
+    month: text('month').notNull(),
+    details: jsonb('details').notNull(),
+    grossMinor: money('gross_minor').notNull(),
+    deductionMinor: money('deduction_minor').notNull(),
+    netMinor: money('net_minor').notNull(),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: created(),
+  },
+  (t) => [unique().on(t.companyId, t.employeeId, t.month)],
+);
 export const fxRates = pgTable('fx_rates', {
   key: text('key').primaryKey(),
   currency: text('currency').notNull(),

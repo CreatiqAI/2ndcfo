@@ -9,6 +9,7 @@ so Next.js, npm, TypeScript and Vercel discover it normally.
     app/                  Next.js pages, styles and authenticated API routes
       claim/              Employee claim-only link page
       api/claim-link/     Scoped link redemption, receipt upload and submission
+      api/salary/         Finance/Admin payslip PDF downloads
     components/           Finance interface, document calendar and document preview
     lib/                  Shared pure UI/data helpers, including invoice month grouping
     server/               Finance services, authentication and integrations
@@ -19,6 +20,7 @@ so Next.js, npm, TypeScript and Vercel discover it normally.
     CHANGELOG.md          Applied database changes and project moves
   config/                 Public TLS CA certificate (not credentials)
   public/                 Logo, favicon, CSV template and PDF viewer assets
+    fonts/                Licensed Noto Sans SC font for Chinese payslip text
   scripts/                Current migration runner, worker and acceptance checks
     archive/              Completed one-off project migration tools
   tests/                  Automated service tests using isolated local databases

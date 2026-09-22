@@ -1,5 +1,17 @@
 # Project change record
 
+## 23 September 2026 — Salary sidebar and payslip PDFs
+
+- Added Finance/Admin Salary page with employee/month selection, five earning
+  fields, manual deductions, automatic gross/net totals and saved PDF downloads.
+- Created an A4 monochrome template matching the supplied reference, with saved
+  employee/company details, signature line and Chinese-name font support.
+- Applied migration 0009; salary snapshots are immutable and unique per employee
+  and month. Generation does not calculate statutory deductions or post payments.
+- All 69 tests, typecheck and production build passed. Tests cover totals,
+  invalid deductions, duplicate months, tenant/role access and PDF generation
+  including Chinese names. Rendered a sample PDF and visually checked the layout.
+
 ## 23 September 2026 — default MYR and foreign-currency conversion
 
 - Added currency choice to upload and its persistent audit metadata. Missing

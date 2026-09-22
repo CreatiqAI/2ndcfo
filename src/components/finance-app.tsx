@@ -95,6 +95,7 @@ const nav = [
   ['Money In', ArrowDownLeft],
   ['Money Out', ArrowUpRight],
   ['Claims', Receipt],
+  ['Salary', Wallet],
   ['Bank Matching', ArrowLeftRight],
   ['Transactions', ClipboardCheck],
   ['Budget', Target],
@@ -741,7 +742,7 @@ export function FinanceApp() {
         <span className="nav-label">WORKSPACE</span>
         <nav>
           {nav
-            .filter(([label]) => label !== 'Deleted records' || canEdit)
+            .filter(([label]) => !['Deleted records', 'Salary'].includes(label) || canEdit)
             .map(([label, Icon]) => (
               <button
                 key={label}
@@ -836,6 +837,7 @@ export function FinanceApp() {
                     Dashboard: 'A clear view of what’s done, what’s pending, and what needs you.',
                     'Money In': 'Review your sales invoices and keep track of customer payments.',
                     'Deleted records': 'Review deleted records and restore them to your workspace.',
+                    Salary: 'Prepare employee salaries and generate monthly payslips.',
                     'Money Out': 'Stay on top of supplier bills and business expenses.',
                     Claims: 'From receipt to reimbursement, with every approval recorded.',
                     'Bank Matching': 'Connect the documents to the money. You make the final call.',
@@ -1566,6 +1568,58 @@ export function FinanceApp() {
             </section>
           )}
 
+          {page === 'Salary' && canEdit && (
+            <section className="panel" style={{ padding: 24 }}>
+              <div className="section-heading">
+                <h2>Salary slips</h2>
+                <button className="button primary" onClick={() => setModal('salary-create')}>
+                  <Plus size={16} /> Generate payslip
+                </button>
+              </div>
+              <p>
+                Enter earnings and deductions to calculate gross and net pay. Generating a payslip
+                does not record a bank payment.
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Month</th>
+                      <th>Gross earnings</th>
+                      <th>Deductions</th>
+                      <th>Net pay</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.salaries.map((salary) => (
+                      <tr key={salary.id}>
+                        <td>{(salary.details as { employeeName: string }).employeeName}</td>
+                        <td>{salary.month}</td>
+                        <td>{money(salary.grossMinor, 'MYR')}</td>
+                        <td>{money(salary.deductionMinor, 'MYR')}</td>
+                        <td>{money(salary.netMinor, 'MYR')}</td>
+                        <td>
+                          <a
+                            className="button secondary"
+                            href={`/api/salary/${salary.id}?company=${companyId}`}
+                          >
+                            <Download size={15} /> Download PDF
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!state.salaries.length && (
+                <Empty title="No payslips yet">
+                  Choose an employee and month to generate your first salary slip.
+                </Empty>
+              )}
+            </section>
+          )}
           {page === 'Settings' && (
             <div className="settings-grid">
               <section className="panel settings-panel">
@@ -1762,6 +1816,19 @@ export function FinanceApp() {
       {modal === 'claim-link' && (
         <Modal title="Send claim link to employee" onClose={close}>
           <ClaimLinkForm state={state} month={month} action={action} busy={busy} />
+        </Modal>
+      )}
+      {modal === 'salary-create' && (
+        <Modal title="Generate salary slip" onClose={close} wide>
+          <SalaryForm
+            state={state}
+            month={month}
+            busy={busy}
+            onSave={async (input) => {
+              await action('salary.create', input, 'Payslip generated. Download the PDF below.');
+              close();
+            }}
+          />
         </Modal>
       )}
       {modal === 'employee-create' && (
@@ -2135,6 +2202,114 @@ function Login({
   );
 }
 type Action = (a: string, input?: Record<string, unknown>, success?: string) => Promise<unknown>;
+
+function SalaryForm({
+  state,
+  month,
+  busy,
+  onSave,
+}: {
+  state: State;
+  month: string;
+  busy: boolean;
+  onSave: (data: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [amounts, setAmounts] = useState<Record<string, string>>({
+      basic: '0',
+      attendance: '0',
+      transport: '0',
+      meal: '0',
+      bonus: '0',
+      deductions: '0',
+    }),
+    [error, setError] = useState('');
+  let gross = 0,
+    net = 0,
+    valid = true;
+  try {
+    gross = ['basic', 'attendance', 'transport', 'meal', 'bonus'].reduce(
+      (sum, key) => sum + parseMinorClient(amounts[key]),
+      0,
+    );
+    net = gross - parseMinorClient(amounts.deductions);
+    valid =
+      Number.isSafeInteger(gross) &&
+      net >= 0 &&
+      Object.values(amounts).every((v) => parseMinorClient(v) >= 0);
+  } catch {
+    valid = false;
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError('');
+        void onSave(Object.fromEntries(new FormData(e.currentTarget))).catch((e) =>
+          setError(e.message),
+        );
+      }}
+    >
+      <div className="form-grid">
+        <FormField label="Employee">
+          <select name="employeeId" required>
+            {state.members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Salary month">
+          <input name="month" type="month" defaultValue={month} required />
+        </FormField>
+        {Object.entries({
+          basic: 'Basic salary',
+          attendance: 'Attendance allowance',
+          transport: 'Transportation allowance',
+          meal: 'Meal allowance',
+          bonus: 'Performance bonus',
+          deductions: 'Total deductions',
+        }).map(([key, label]) => (
+          <FormField key={key} label={`${label} (MYR)`}>
+            <input
+              name={key}
+              value={amounts[key]}
+              onChange={(e) => setAmounts({ ...amounts, [key]: e.target.value })}
+              inputMode="decimal"
+              required
+            />
+          </FormField>
+        ))}
+        {Object.entries({
+          deductionLabel: 'Deduction description',
+          employeeAddress: 'Employee address',
+          employeeContact: 'Employee contact',
+          companyAddress: 'Company address',
+          companyContact: 'Company contact',
+          signatory: 'Authorised signatory name',
+          designation: 'Signatory title',
+        }).map(([key, label]) => (
+          <FormField key={key} label={label}>
+            <input name={key} maxLength={100} />
+          </FormField>
+        ))}
+      </div>
+      <p className="notice">
+        Gross earnings: {valid ? money(gross, 'MYR') : 'Check amounts'} · Net pay:{' '}
+        {valid ? money(net, 'MYR') : 'Check amounts'}. Enter verified deductions yourself; statutory
+        deductions are not calculated automatically. One saved payslip per employee/month.
+      </p>
+      {error && (
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+      )}
+      <button className="button primary" disabled={busy || !valid || !state.members.length}>
+        Generate payslip
+      </button>
+    </form>
+  );
+}
 
 function ClaimLinkForm({
   state,
@@ -3880,8 +4055,12 @@ function Reconciliation({
   );
 }
 function parseMinorClient(value: string) {
+  if (!/^\d+(\.\d{1,2})?$/.test(value))
+    throw new Error('Enter a non-negative amount with at most two decimal places.');
   const [whole, fraction = ''] = value.split('.');
-  return Number(BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0')));
+  const amount = Number(BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0')));
+  if (!Number.isSafeInteger(amount)) throw new Error('Amount exceeds supported precision.');
+  return amount;
 }
 function InvoiceCancellation({
   invoice: i,

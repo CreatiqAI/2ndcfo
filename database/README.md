@@ -14,7 +14,7 @@ Private original files: Storage bucket `finance-document`. Previous project
 
 ## Apply a change
 
-1. Add the next numbered SQL file; preserve the four existing migration filenames
+1. Add the next numbered SQL file; preserve all existing migration filenames
    and contents because `finance.schema_migrations` identifies them by filename.
 2. Update the Drizzle schema where needed. Verify with `npm test` and `npm run typecheck`.
 3. Confirm the configured target, retain a recovery backup for data-affecting work,

@@ -343,6 +343,13 @@ export async function snapshot(actor: Actor) {
   });
   return {
     company,
+    salaries: ['Admin', 'Finance'].includes(actor.role)
+      ? await db
+          .select()
+          .from(s.salarySlips)
+          .where(eq(s.salarySlips.companyId, actor.companyId))
+          .orderBy(desc(s.salarySlips.month))
+      : [],
     actor,
     categories,
     currencies,

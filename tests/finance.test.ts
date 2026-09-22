@@ -20,6 +20,8 @@ import {
 } from '../src/server/claim-links';
 import { trashRecord } from '../src/server/record-trash';
 import { myrRate } from '../src/server/fx';
+import { createSalary, getSalary, salaryAmounts } from '../src/server/salary';
+import { salaryPdf, type SalaryDetails } from '../src/server/salary-pdf';
 import { createClaim, changeClaim } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
@@ -292,6 +294,37 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('calculates salary cents, protects payroll access and generates a single-page payslip', async () => {
+    expect(salaryAmounts(['2800', '120', '90', '70', '250'], '100').netMinor).toBe(323000);
+    expect(() => salaryAmounts(['10'], '11')).toThrow('exceed');
+    expect(() => salaryAmounts(['-1'], '0')).toThrow('negative');
+    const input = {
+      employeeId: employee.userId,
+      month,
+      basic: '2800',
+      attendance: '120',
+      transport: '90',
+      meal: '70',
+      bonus: '250',
+      deductions: '100',
+    };
+    await expect(createSalary(employee, input)).rejects.toThrow('role');
+    await expect(createSalary(other, input)).rejects.toThrow('workspace');
+    const result = await createSalary(admin, input);
+    const record = await getSalary(admin, result.id);
+    expect(record.grossMinor).toBe(333000);
+    expect(record.netMinor).toBe(323000);
+    const pdf = await PDFDocument.load(await salaryPdf(record.details as SalaryDetails));
+    expect(pdf.getPageCount()).toBe(1);
+    const unicodePdf = await PDFDocument.load(
+      await salaryPdf({ ...(record.details as SalaryDetails), employeeName: '陈美玲' }),
+    );
+    expect(unicodePdf.getPageCount()).toBe(1);
+    await expect(getSalary(employee, result.id)).rejects.toThrow('role');
+    await expect(getSalary(other, result.id)).rejects.toThrow('not found');
+    expect((await snapshot(employee)).salaries).toEqual([]);
+    await expect(createSalary(admin, input)).rejects.toThrow('already exists');
+  });
   it('shows missing currency as MYR and persists the default on approval', async () => {
     const row = await draftInvoice();
     await (

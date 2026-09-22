@@ -1,5 +1,14 @@
 # Database change record
 
+## 23 September 2026 — salary statements
+
+Applied `0009_salary_slips.sql` to `btpolwpgnekvyimpqegu`, schema `finance`.
+Added `salary_slips` with employee/company references, saved details, integer-cent
+gross/deduction/net amounts and one statement per company/employee/month.
+Verified the migration ledger, enabled RLS and immutable update/delete trigger.
+No live salary records were created during verification. Recovery: revert the
+application while retaining this additive table and all saved payroll evidence.
+
 ## 23 September 2026 — invoice currency defaults and FX cache
 
 Applied `0008_invoice_currency.sql` to active `finance` schema. Added immutable

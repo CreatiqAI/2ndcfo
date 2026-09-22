@@ -3,7 +3,9 @@ const config: NextConfig = {
   outputFileTracingExcludes: {
     '*': ['./.data/**/*', './.data-backups/**/*', './.env*', './test-results/**/*'],
   },
-  outputFileTracingIncludes: { '/api/*': ['./config/supabase-ca.crt'] },
+  outputFileTracingIncludes: {
+    '/api/*': ['./config/supabase-ca.crt', './public/fonts/NotoSansSC.ttf'],
+  },
   serverExternalPackages: ['@electric-sql/pglite', 'pg', 'exceljs', 'sharp'],
   async headers() {
     return [
