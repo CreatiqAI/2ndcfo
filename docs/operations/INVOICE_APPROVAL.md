@@ -1,5 +1,23 @@
 # Approvals and overdue invoices
 
+## Money In and Money Out calendar
+
+Choose a year and month in **Records by month** before viewing the record tables.
+Money In uses invoice dates; Money Out uses bill dates and claim months. Selections
+are separate for each workspace/page. Undated invoices remain reviewable in Documents.
+Search, status filters and Approve all apply within the selected month.
+
+**Total Revenue / Total Expenses** retain all-date approved amounts in workspace
+currency. **Monthly Revenue / Monthly Expenses**, Outstanding and Overdue follow
+the selected month. Revenue/expense means approved document value, not matched
+cash. Finance-approved claim bundles count once in expenses. Before a month is
+selected, monthly cards display a dash. Existing financial totals still retain
+recoverably deleted evidence; list visibility does not reverse accounting values.
+
+Fully matched/settled invoice rows no longer display calculated due-date messages.
+Original due dates remain available in document details as evidence. Partially paid
+invoices continue to show due/overdue information for the remaining balance.
+
 ## Currency and MYR equivalents
 
 Document upload includes a currency selector, defaulting to MYR. With that default,

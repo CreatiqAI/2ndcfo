@@ -1,5 +1,16 @@
 # Project change record
 
+## 23 September 2026 — monthly revenue and expense views
+
+- Added Money In/Out month calendars; invoice/bill tables and claim bundles appear
+  after selecting a month. Search/status/Approve all stay inside that selection.
+- Renamed total cards to Total Revenue/Expenses and replaced cash-matched cards
+  with Monthly Revenue/Expenses based on approved document amounts. Outstanding
+  and Overdue also follow the selected month. Currency and claim counting rules
+  follow the existing summary logic; total cards retain all-date financial totals.
+- Hid calculated due-date messages on fully settled/matched rows. Original fields
+  and allocations are unchanged. TypeScript and production build passed.
+
 ## 23 September 2026 — restrict manual invoice matching by statement month
 
 - Restricted invoice choices in statement review and Manual / split / combine to

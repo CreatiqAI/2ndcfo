@@ -39,6 +39,7 @@ import type { snapshot } from '@/server/workspace';
 import { PdfPreview } from './pdf-preview';
 import { PayslipTemplateSettings } from './payslip-template-settings';
 import { DocumentCalendar } from './document-calendar';
+import { MoneyCalendar } from './money-calendar';
 import { monthLabel } from '@/lib/document-months';
 type Json<T> = T extends Date
   ? string
@@ -283,6 +284,8 @@ export function FinanceApp() {
     [selectedClaim, setSelectedClaim] = useState<Claim | null>(null),
     [selectedStatement, setSelectedStatement] = useState<Statement | null>(null);
   const state = session?.state;
+  const [moneyMonths, setMoneyMonths] = useState<Record<string, string>>({});
+  const moneyMonth = moneyMonths[`${companyId}:${page}`] || '';
   const activeCompany = useRef(companyId);
   activeCompany.current = companyId;
   const refresh = useCallback(async (id?: string, onlyIfActive = false) => {
@@ -488,6 +491,7 @@ export function FinanceApp() {
     (i) =>
       !i.claimId &&
       !i.deleted &&
+      (page === 'Transactions' || (!!moneyMonth && i.invoiceDate?.slice(0, 7) === moneyMonth)) &&
       matches(i) &&
       (page === 'Transactions'
         ? i.reviewStatus === 'Approved'
@@ -534,6 +538,7 @@ export function FinanceApp() {
               .filter(
                 (c) =>
                   !c.deleted &&
+                  (page !== 'Money Out' || c.month === moneyMonth) &&
                   matches(c) &&
                   (filter === 'All' ||
                     c.status === filter ||
@@ -645,12 +650,14 @@ export function FinanceApp() {
                       still awaiting payment matching.
                     </span>
                   )}
-                  {i.dueDateSource === 'terms' && (
-                    <span className="invoice-review-reason">
-                      Due {dateLabel(i.effectiveDueDate)} calculated from invoice date +{' '}
-                      {i.paymentTerms}.
-                    </span>
-                  )}
+                  {i.dueDateSource === 'terms' &&
+                    i.outstandingMinor > 0 &&
+                    i.bankMatch !== 'Matched' && (
+                      <span className="invoice-review-reason">
+                        Due {dateLabel(i.effectiveDueDate)} calculated from invoice date +{' '}
+                        {i.paymentTerms}.
+                      </span>
+                    )}
                 </div>
               </td>
               <td>
@@ -1225,36 +1232,94 @@ export function FinanceApp() {
           {['Money In', 'Money Out', 'Transactions'].includes(page) && (
             <>
               {page !== 'Transactions' && (
+                <MoneyCalendar
+                  key={`${companyId}:${page}`}
+                  selection={moneyMonth}
+                  onSelect={(m) =>
+                    setMoneyMonths((all) => ({ ...all, [`${companyId}:${page}`]: m }))
+                  }
+                  dates={[
+                    ...state.invoices
+                      .filter(
+                        (i) =>
+                          !i.claimId &&
+                          !i.deleted &&
+                          (page === 'Money In'
+                            ? i.kind === 'Sales Invoice'
+                            : i.kind !== 'Sales Invoice'),
+                      )
+                      .map((i) => i.invoiceDate),
+                    ...(page === 'Money Out'
+                      ? state.claims.filter((c) => !c.deleted).map((c) => `${c.month}-01`)
+                      : []),
+                  ]}
+                />
+              )}
+              {page !== 'Transactions' && (
                 <div className="metrics">
                   {(() => {
                     const s = state.summaries.find(
                       (x) =>
                         x.kind === (page === 'Money In' ? 'Sales Invoice' : 'Supplier Invoice'),
                     )!;
+                    const invoices = state.invoices.filter(
+                      (i) =>
+                        !i.claimId &&
+                        i.reviewStatus === 'Approved' &&
+                        i.lifecycle !== 'Cancelled' &&
+                        i.currency === state.company.currency &&
+                        i.invoiceDate?.slice(0, 7) === moneyMonth &&
+                        (page === 'Money In'
+                          ? i.kind === 'Sales Invoice'
+                          : i.kind !== 'Sales Invoice'),
+                    );
+                    const claims =
+                      page === 'Money Out'
+                        ? state.claims.filter(
+                            (c) =>
+                              c.status === 'Finance Approved' &&
+                              c.currency === state.company.currency &&
+                              c.month === moneyMonth,
+                          )
+                        : [];
+                    const monthlyTotal =
+                      invoices.reduce((n, i) => n + (i.totalMinor || 0), 0) +
+                      claims.reduce((n, c) => n + c.claimedMinor, 0);
+                    const monthlyOutstanding =
+                      invoices.reduce((n, i) => n + i.outstandingMinor, 0) +
+                      claims.reduce((n, c) => n + c.claimedMinor - c.paidMinor, 0);
+                    const monthlyOverdue = invoices
+                      .filter((i) => i.isOverdue)
+                      .reduce((n, i) => n + i.outstandingMinor, 0);
+                    const selectedNote = moneyMonth
+                      ? `${monthLabel(moneyMonth)} · ${state.company.currency} only`
+                      : 'Select a month';
                     return (
                       <>
                         <Metric
-                          label={page === 'Money In' ? 'Total invoiced' : 'Total approved bills'}
+                          label={page === 'Money In' ? 'Total Revenue' : 'Total Expenses'}
                           value={money(s.total, state.company.currency)}
                           note={`All dates · ${state.company.currency} only`}
                           icon={<FileText size={18} />}
                         />
                         <Metric
-                          label={page === 'Money In' ? 'Cash collected' : 'Payments matched'}
-                          value={money(s.paid, state.company.currency)}
-                          note="Confirmed bank allocations"
+                          label={page === 'Money In' ? 'Monthly Revenue' : 'Monthly Expenses'}
+                          value={moneyMonth ? money(monthlyTotal, state.company.currency) : '—'}
+                          note={selectedNote}
                           icon={<Wallet size={18} />}
                         />
                         <Metric
                           label="Outstanding"
-                          value={money(s.outstanding, state.company.currency)}
-                          note="Still awaiting settlement"
+                          value={
+                            moneyMonth ? money(monthlyOutstanding, state.company.currency) : '—'
+                          }
+                          note={selectedNote}
                           icon={<Clock3 size={18} />}
                         />
                         <Metric
                           label="Overdue"
-                          value={money(s.overdue, state.company.currency)}
-                          note="Past due date · payment not fully matched"
+                          value={moneyMonth ? money(monthlyOverdue, state.company.currency) : '—'}
+                          note={selectedNote}
                           icon={<AlertTriangle size={18} />}
                         />
                       </>
@@ -1262,50 +1327,52 @@ export function FinanceApp() {
                   })()}
                 </div>
               )}
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>
-                    {page === 'Transactions'
-                      ? 'Approved transactions'
-                      : page === 'Money In'
-                        ? 'Sales invoices'
-                        : 'Supplier bills & expenses'}
-                  </h2>
-                  {canEdit && page !== 'Transactions' && (
-                    <ApproveAll
-                      key={`${companyId}:${page}`}
-                      rows={moneyRows}
-                      action={action}
-                      busy={busy}
-                    />
-                  )}
-                  <a
-                    className="button secondary"
-                    href={exportLink(page === 'Transactions' ? 'transactions' : 'invoices')}
-                  >
-                    <Download size={16} />
-                    Export CSV
-                  </a>
-                </div>
-                <Toolbar
-                  search={search}
-                  setSearch={setSearch}
-                  filter={filter}
-                  setFilter={setFilter}
-                  options={[
-                    'All',
-                    'Draft',
-                    'Unpaid',
-                    'Partially Paid',
-                    'Paid',
-                    'Overdue',
-                    'Needs Review',
-                    'Cancelled',
-                  ]}
-                />
-                {invoiceTable(moneyRows)}
-              </section>
-              {page === 'Money Out' && claimBundles()}
+              {(page === 'Transactions' || moneyMonth) && (
+                <section className="panel">
+                  <div className="section-heading">
+                    <h2>
+                      {page === 'Transactions'
+                        ? 'Approved transactions'
+                        : page === 'Money In'
+                          ? 'Sales invoices'
+                          : 'Supplier bills & expenses'}
+                    </h2>
+                    {canEdit && page !== 'Transactions' && (
+                      <ApproveAll
+                        key={`${companyId}:${page}:${moneyMonth}`}
+                        rows={moneyRows}
+                        action={action}
+                        busy={busy}
+                      />
+                    )}
+                    <a
+                      className="button secondary"
+                      href={exportLink(page === 'Transactions' ? 'transactions' : 'invoices')}
+                    >
+                      <Download size={16} />
+                      Export CSV
+                    </a>
+                  </div>
+                  <Toolbar
+                    search={search}
+                    setSearch={setSearch}
+                    filter={filter}
+                    setFilter={setFilter}
+                    options={[
+                      'All',
+                      'Draft',
+                      'Unpaid',
+                      'Partially Paid',
+                      'Paid',
+                      'Overdue',
+                      'Needs Review',
+                      'Cancelled',
+                    ]}
+                  />
+                  {invoiceTable(moneyRows)}
+                </section>
+              )}
+              {page === 'Money Out' && moneyMonth && claimBundles()}
             </>
           )}
           {page === 'Documents' && (
