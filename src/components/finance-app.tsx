@@ -1503,22 +1503,31 @@ export function FinanceApp() {
             </section>
           )}
           {page === 'Bank Matching' && (
-            <Reconciliation
-              state={state}
-              month={month}
-              search={search}
-              setSearch={setSearch}
-              filter={filter}
-              setFilter={setFilter}
-              action={action}
-              busy={busy}
-              canEdit={canEdit}
-              openStatement={(s) => {
-                setSelectedStatement(s);
-                setModal('statement');
-              }}
-              exportLink={exportLink('reconciliation')}
-            />
+            <>
+              <StatementHistory
+                state={state}
+                openStatement={(s) => {
+                  setSelectedStatement(s);
+                  setModal('statement');
+                }}
+              />
+              <Reconciliation
+                state={state}
+                month={month}
+                search={search}
+                setSearch={setSearch}
+                filter={filter}
+                setFilter={setFilter}
+                action={action}
+                busy={busy}
+                canEdit={canEdit}
+                openStatement={(s) => {
+                  setSelectedStatement(s);
+                  setModal('statement');
+                }}
+                exportLink={exportLink('reconciliation')}
+              />
+            </>
           )}
           {page === 'Deleted records' && canEdit && (
             <section className="panel" style={{ padding: 24 }}>
@@ -1665,6 +1674,12 @@ export function FinanceApp() {
                 <dl>
                   <dt>AI extraction</dt>
                   <dd>{state.provider}</dd>
+                  {state.extractionModel && (
+                    <>
+                      <dt>Document model</dt>
+                      <dd>{state.extractionModel}</dd>
+                    </>
+                  )}
                   <dt>Database</dt>
                   <dd>{state.local ? 'Local PostgreSQL (PGlite)' : 'PostgreSQL'}</dd>
                   <dt>Evidence</dt>
@@ -1949,6 +1964,8 @@ export function FinanceApp() {
       {modal === 'statement' && selectedStatement && (
         <Modal title="Review bank statement" onClose={close} wide>
           <StatementReview
+            key={selectedStatement.id}
+            canEdit={canEdit}
             statement={
               state.statements.find((s) => s.id === selectedStatement.id) || selectedStatement
             }
@@ -3450,13 +3467,110 @@ function BankUpload({
     </>
   );
 }
+function StatementHistory({
+  state,
+  openStatement,
+}: {
+  state: State;
+  openStatement: (s: Statement) => void;
+}) {
+  const [period, setPeriod] = useState('All');
+  const [query, setQuery] = useState('');
+  const rows = [...state.statements]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((s) => {
+      const name = state.documents.find((d) => d.id === s.documentId)?.name || '';
+      const account = state.accounts.find((a) => a.id === s.accountId)?.name || '';
+      return (
+        (period === 'All' || s.month === period) &&
+        `${name} ${account} ${s.month} ${s.status}`.toLowerCase().includes(query.toLowerCase())
+      );
+    });
+  return (
+    <section className="panel" style={{ marginBottom: 24 }}>
+      <div className="section-heading">
+        <div>
+          <h2>Bank statement history</h2>
+          <p>All uploaded statements. Open any statement to review it again.</p>
+        </div>
+      </div>
+      <div className="filter-bar">
+        <input
+          aria-label="Search statement history"
+          placeholder="Search file or bank account"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label="Statement history month"
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+        >
+          <option value="All">All months</option>
+          {[...new Set(state.statements.map((s) => s.month))]
+            .sort()
+            .reverse()
+            .map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Statement</th>
+              <th>Bank account</th>
+              <th>Month</th>
+              <th>Uploaded</th>
+              <th>Status</th>
+              <th>Rows</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s) => (
+              <tr key={s.id}>
+                <td>
+                  {state.documents.find((d) => d.id === s.documentId)?.name || 'Bank statement'}
+                </td>
+                <td>{state.accounts.find((a) => a.id === s.accountId)?.name || 'Bank account'}</td>
+                <td>{monthLabel(s.month)}</td>
+                <td>{new Date(s.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <Badge>{s.status}</Badge>
+                </td>
+                <td>{(s.draft as { rows: unknown[] }).rows.length}</td>
+                <td>
+                  <button className="text-button" onClick={() => openStatement(s)}>
+                    {s.status === 'Imported' ? 'Review again' : 'Continue review'}{' '}
+                    <ArrowRight size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!rows.length && (
+        <Empty title="No statements found">
+          Upload a bank statement or change the history filter.
+        </Empty>
+      )}
+    </section>
+  );
+}
 function StatementReview({
   statement: s,
   action,
   busy,
   docLink,
   onDone,
+  canEdit,
 }: {
+  canEdit: boolean;
   statement: Statement;
   action: Action;
   busy: boolean;
@@ -3514,19 +3628,25 @@ function StatementReview({
         </a>
       </div>
       {draft.notes && <div className="notice">{draft.notes}</div>}
+      {s.status === 'Imported' && (
+        <div className="notice">
+          Review the original and imported rows below. Recorded transactions and matches are
+          preserved.
+        </div>
+      )}
       <div className="form-grid">
         <FormField label="Opening balance (if evidenced)">
           <input
             value={draft.opening || ''}
             onChange={(e) => setDraft({ ...draft, opening: e.target.value || null })}
-            disabled={s.status === 'Imported'}
+            disabled={!canEdit || s.status === 'Imported'}
           />
         </FormField>
         <FormField label="Closing balance (if evidenced)">
           <input
             value={draft.closing || ''}
             onChange={(e) => setDraft({ ...draft, closing: e.target.value || null })}
-            disabled={s.status === 'Imported'}
+            disabled={!canEdit || s.status === 'Imported'}
           />
         </FormField>
       </div>
@@ -3553,12 +3673,12 @@ function StatementReview({
                       value={r[k] || ''}
                       type={k === 'date' ? 'date' : 'text'}
                       onChange={(e) => edit(index, k, e.target.value)}
-                      disabled={s.status === 'Imported'}
+                      disabled={!canEdit || s.status === 'Imported'}
                     />
                   </td>
                 ))}
                 <td>
-                  {s.status !== 'Imported' && (
+                  {canEdit && s.status !== 'Imported' && (
                     <button
                       className="icon-button"
                       aria-label={`Remove row ${index + 1}`}
@@ -3575,7 +3695,35 @@ function StatementReview({
           </tbody>
         </table>
       </div>
-      {s.status !== 'Imported' && (
+      {s.status === 'Imported' && canEdit && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action('statement.review', { id: s.id, reason }, 'Statement review recorded.')
+              .then(onDone)
+              .catch((e) => setError(e.message));
+          }}
+        >
+          <FormField label="Review note (at least 10 characters)">
+            <input
+              required
+              minLength={10}
+              maxLength={2000}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </FormField>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="button primary" disabled={busy}>
+            Record review
+          </button>
+        </form>
+      )}
+      {canEdit && s.status !== 'Imported' && (
         <>
           <button
             className="text-button"

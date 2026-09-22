@@ -1,5 +1,21 @@
 # Monthly bank matching
 
+## Statement history and repeat review
+
+Open **Bank Matching → Bank statement history**. The history includes all months,
+independently of the matching month's filter. Search by filename/account or select
+a month, then choose **Continue review** or **Review again**.
+
+Pending imports can be corrected and confirmed by Finance/Admin. Imported rows
+remain read-only; compare them with **Original statement**, enter a review note
+and press **Record review**. This adds `statement.reviewed` to the audit trail
+without inserting bank rows again or changing allocations. Accountant access is
+read-only. Re-review does not rerun AI or reverse/correct already imported ledger
+rows; such changes require a separate correction workflow. Review annotations can
+be recorded for closed periods because they do not change financial values.
+
+## Upload and match
+
 1. Open **Bank Matching → Import statement** and choose the bank account.
 2. Answer **Which month and year is this bank statement for?** This is required
    for each upload; use the statement period, not today's month.

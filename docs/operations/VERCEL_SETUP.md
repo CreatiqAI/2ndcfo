@@ -2,7 +2,9 @@
 
 Use `.env.vercel.local` as the private import file. `.env.vercel.example` is the
 secret-free template. Neither file changes the running localhost connection.
-The private import file reuses the existing OpenAI key and sets `gpt-5-mini`.
+The private import file reuses the existing OpenAI key and sets `gpt-5.6-luna`.
+For an existing Vercel deployment, update `OPENAI_MODEL=gpt-5.6-luna` and redeploy;
+Git pushes do not replace environment variables already saved in Vercel.
 No temperature, top_p or reasoning overrides are sent to OpenAI.
 
 ## What to obtain
@@ -69,4 +71,4 @@ References:
 - https://vercel.com/docs/functions/limitations
 - https://vercel.com/docs/environment-variables/reserved-environment-variables
 - https://supabase.com/docs/guides/storage/s3/authentication
-- https://developers.openai.com/api/docs/models/gpt-5-mini
+- https://developers.openai.com/api/docs/models/gpt-5.6-luna

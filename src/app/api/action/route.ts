@@ -11,7 +11,11 @@ import { failure, requestActor, requestUser } from '@/server/http';
 import { assignMember, createWorkspace, rejectSuggestion } from '@/server/workspace';
 import { cancelInvoice, reviewInvoice, splitInvoice } from '@/server/invoices/service';
 import { changeClaim, createClaim } from '@/server/claims/service';
-import { confirmStatement, createBankAccount } from '@/server/banking/service';
+import {
+  confirmStatement,
+  createBankAccount,
+  reviewImportedStatement,
+} from '@/server/banking/service';
 import { categoriseBank, confirmAllocations } from '@/server/reconciliation/service';
 import { processOne } from '@/server/extraction/worker';
 import { getDb } from '@/server/db';
@@ -66,6 +70,9 @@ export async function POST(request: Request) {
         break;
       case 'statement.confirm':
         result = await confirmStatement(actor, { ...input, action: input.operation || 'import' });
+        break;
+      case 'statement.review':
+        result = await reviewImportedStatement(actor, input);
         break;
       case 'allocation.confirm':
         result = await confirmAllocations(actor, input);

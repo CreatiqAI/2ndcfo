@@ -132,7 +132,7 @@ class OpenAIProvider implements ExtractionProvider {
     instructions: string,
   ) {
     assert(process.env.OPENAI_API_KEY, 'OPENAI_API_KEY is not configured.');
-    const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+    const model = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
     const attachment =
       mime === 'application/pdf'
         ? {

@@ -1,5 +1,19 @@
 # Project change record
 
+## 23 September 2026 — GPT-5.6 Luna and statement history
+
+- Changed extraction default, public templates and ignored local/Vercel env files
+  to `gpt-5.6-luna`, keeping existing keys and request settings. Model access was
+  verified with the configured API account; synthetic PDF invoice and bank-statement
+  extraction passed through the app's structured-output provider. Settings shows
+  the configured model. Existing extraction evidence is unchanged.
+- Added all-month bank statement history with file/account search, month filter,
+  upload date, status, row count and reopen actions. Finance/Admin can record
+  repeat reviews of imported statements with an append-only audit note. Pending
+  statements retain correction/import controls; read-only roles cannot edit.
+- All 70 tests and production build passed. Re-review tests verify tenant/role
+  access and unchanged bank transactions/allocations. No schema migration required.
+
 ## 23 September 2026 — dark landscape payslip
 
 - Replaced the default for future salary statements with the new reference layout:

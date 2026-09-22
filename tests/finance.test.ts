@@ -37,6 +37,7 @@ import {
   createBankAccount,
   uploadStatement,
   confirmStatement,
+  reviewImportedStatement,
 } from '../src/server/banking/service';
 import { parseStructured, validateStatement } from '../src/server/banking/parser';
 import { confirmAllocations, categoriseBank } from '../src/server/reconciliation/service';
@@ -743,6 +744,30 @@ describe('Document pipeline and statement import', () => {
       await db.select().from(s.bankTransactions).where(eq(s.bankTransactions.statementId, stmt.id)),
     ).toHaveLength(0);
     await confirmStatement(admin, { id: stmt.id, draft: stmt.draft, reason: 'Verified source' });
+    const beforeRows = await db
+      .select()
+      .from(s.bankTransactions)
+      .where(eq(s.bankTransactions.statementId, stmt.id));
+    const beforeAllocations = await db.select().from(s.allocations);
+    await expect(
+      reviewImportedStatement(employee, { id: stmt.id, reason: 'Verified a second time' }),
+    ).rejects.toThrow('role');
+    await expect(
+      reviewImportedStatement(other, { id: stmt.id, reason: 'Verified a second time' }),
+    ).rejects.toThrow('not found');
+    await reviewImportedStatement(admin, { id: stmt.id, reason: 'Verified a second time' });
+    expect(
+      await db.select().from(s.bankTransactions).where(eq(s.bankTransactions.statementId, stmt.id)),
+    ).toEqual(beforeRows);
+    expect(await db.select().from(s.allocations)).toEqual(beforeAllocations);
+    const reviews = await db
+      .select()
+      .from(s.auditEvents)
+      .where(
+        and(eq(s.auditEvents.entityId, stmt.id), eq(s.auditEvents.action, 'statement.reviewed')),
+      );
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].reason).toBe('Verified a second time');
     expect(
       await db.select().from(s.bankTransactions).where(eq(s.bankTransactions.statementId, stmt.id)),
     ).toHaveLength(1);

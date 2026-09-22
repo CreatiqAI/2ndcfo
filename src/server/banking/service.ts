@@ -30,6 +30,30 @@ export async function createBankAccount(actor: Actor, input: unknown) {
     return row;
   });
 }
+export async function reviewImportedStatement(actor: Actor, input: unknown) {
+  requireRole(actor, ['Admin', 'Finance']);
+  const data = z.object({ id: z.uuid(), reason: z.string().trim().min(10).max(2000) }).parse(input);
+  return (await getDb()).transaction(async (tx) => {
+    await lockCompany(tx, actor);
+    const [statement] = await tx
+      .select()
+      .from(statements)
+      .where(and(eq(statements.id, data.id), eq(statements.companyId, actor.companyId)));
+    assert(statement, 'Statement not found.', 404);
+    assert(statement.status === 'Imported', 'Review and confirm the pending import first.', 409);
+    // An additional review is an annotation, never a second import or ledger rewrite.
+    await audit(
+      tx,
+      actor,
+      statement.id,
+      'statement.reviewed',
+      null,
+      { status: statement.status },
+      data.reason,
+    );
+    return { reviewed: true };
+  });
+}
 export async function uploadStatement(
   actor: Actor,
   file: { name: string; data: Buffer },

@@ -372,6 +372,8 @@ export async function snapshot(actor: Actor) {
     suggestions,
     groups,
     provider: process.env.AI_PROVIDER === 'openai' ? 'OpenAI' : 'Manual review · AI not configured',
+    extractionModel:
+      process.env.AI_PROVIDER === 'openai' ? process.env.OPENAI_MODEL || 'gpt-5.6-luna' : null,
     local: process.env.DATABASE_MODE === 'local' || !process.env.DATABASE_URL,
   };
 }
