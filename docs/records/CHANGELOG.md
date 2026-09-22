@@ -1,5 +1,16 @@
 # Project change record
 
+## 23 September 2026 — manual matching in statement review
+
+- Added per-imported-row payment selection to Review again, mapped by immutable
+  statement ID and source row index. Fully matched/categorised rows show their state.
+- Selected payments each have an invoice/claim picker and editable amount, with
+  reference, party, invoice number, date and outstanding amount visible. Confirm
+  uses the existing audited allocation service and refreshes payment statuses.
+- No live allocations or schema changes were made. All 71 tests and production
+  build passed, including separate matching of two RM444 incoming payments and
+  prevention of repeated use of the same payments.
+
 ## 23 September 2026 — GPT-5.6 Luna and statement history
 
 - Changed extraction default, public templates and ignored local/Vercel env files

@@ -1964,6 +1964,7 @@ export function FinanceApp() {
       {modal === 'statement' && selectedStatement && (
         <Modal title="Review bank statement" onClose={close} wide>
           <StatementReview
+            state={state}
             key={selectedStatement.id}
             canEdit={canEdit}
             statement={
@@ -3562,7 +3563,155 @@ function StatementHistory({
     </section>
   );
 }
+function StatementPaymentMatch({
+  state,
+  ids,
+  action,
+  busy,
+  onDone,
+}: {
+  state: State;
+  ids: string[];
+  action: Action;
+  busy: boolean;
+  onDone: () => void;
+}) {
+  const [choices, setChoices] = useState<Record<string, { target: string; amount: string }>>({});
+  const [reason, setReason] = useState('Manually matched against original bank statement');
+  const [error, setError] = useState('');
+  const banks = ids
+    .map((id) => state.bank.find((b) => b.id === id))
+    .filter((b): b is State['bank'][number] => !!b);
+  return (
+    <form
+      className="detail-block"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError('');
+        try {
+          const items = banks.map((bank) => {
+            const choice = choices[bank.id];
+            if (!choice?.target)
+              throw new Error('Choose an invoice or claim for every selected payment.');
+            const [targetType, targetId] = choice.target.split(':');
+            return {
+              bankId: bank.id,
+              targetType,
+              targetId,
+              amountMinor: parseMinorClient(choice.amount),
+            };
+          });
+          void action(
+            'allocation.confirm',
+            { items, reason },
+            'Selected payments matched. Invoice payment status updated.',
+          )
+            .then(onDone)
+            .catch((e) => setError(e.message));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Check matching amounts.');
+        }
+      }}
+    >
+      <h3>Match selected payments ({banks.length})</h3>
+      <p>
+        Choose the correct invoice for each payment. Invoice numbers distinguish payments with the
+        same amount. All invoice months are available.
+      </p>
+      {banks.map((bank) => {
+        const choice = choices[bank.id] || {
+          target: '',
+          amount: (bank.remaining / 100).toFixed(2),
+        };
+        const targets = state.obligations.filter(
+          (t) => t.currency === bank.currency && t.direction === bank.direction,
+        );
+        return (
+          <div className="detail-block" key={bank.id}>
+            <p>
+              <b>
+                {bank.date} · {money(bank.remaining, bank.currency)} remaining
+              </b>
+              <br />
+              {bank.description} · Ref: {bank.reference || '—'}
+            </p>
+            <div className="form-grid">
+              <FormField label="Invoice / claim">
+                <select
+                  required
+                  disabled={busy}
+                  value={choice.target}
+                  onChange={(e) => {
+                    const target = targets.find((t) => `${t.type}:${t.id}` === e.target.value);
+                    setChoices((all) => ({
+                      ...all,
+                      [bank.id]: {
+                        target: e.target.value,
+                        amount: (
+                          Math.min(bank.remaining, target?.outstanding || bank.remaining) / 100
+                        ).toFixed(2),
+                      },
+                    }));
+                  }}
+                >
+                  <option value="">Select invoice / claim</option>
+                  {targets.map((t) => (
+                    <option key={`${t.type}:${t.id}`} value={`${t.type}:${t.id}`}>
+                      {t.party} · {t.number || 'Claim'} · {t.date} ·{' '}
+                      {money(t.outstanding, t.currency)} outstanding
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Amount to match">
+                <input
+                  required
+                  disabled={busy}
+                  inputMode="decimal"
+                  pattern="[0-9]+(\.[0-9]{1,2})?"
+                  value={choice.amount}
+                  onChange={(e) =>
+                    setChoices((all) => ({
+                      ...all,
+                      [bank.id]: { ...choice, amount: e.target.value },
+                    }))
+                  }
+                />
+              </FormField>
+            </div>
+            {!targets.length && (
+              <p>No approved outstanding documents with this currency and payment direction.</p>
+            )}
+          </div>
+        );
+      })}
+      <FormField label="Matching reason">
+        <input
+          required
+          minLength={3}
+          maxLength={1000}
+          disabled={busy}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </FormField>
+      <p className="notice">
+        Confirming records these payments against the selected documents. Check each reference
+        before confirming.
+      </p>
+      {error && (
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+      )}
+      <button className="button primary" disabled={busy || !banks.length}>
+        Confirm selected matches
+      </button>
+    </form>
+  );
+}
 function StatementReview({
+  state,
   statement: s,
   action,
   busy,
@@ -3570,6 +3719,7 @@ function StatementReview({
   onDone,
   canEdit,
 }: {
+  state: State;
   canEdit: boolean;
   statement: Statement;
   action: Action;
@@ -3594,6 +3744,8 @@ function StatementReview({
     [reason, setReason] = useState('Reviewed against original bank statement'),
     [allowDuplicates, setAllowDuplicates] = useState(false),
     [error, setError] = useState('');
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
+  const importedRows = state.bank.filter((b) => b.statementId === s.id);
   const edit = (index: number, key: string, value: string) =>
     setDraft((d) => ({
       ...d,
@@ -3654,11 +3806,17 @@ function StatementReview({
         <table>
           <thead>
             <tr>
-              {['Date', 'Description', 'Reference', 'Money in', 'Money out', 'Balance', ''].map(
-                (h, i) => (
-                  <th key={i}>{h}</th>
-                ),
-              )}
+              {[
+                'Date',
+                'Description',
+                'Reference',
+                'Money in',
+                'Money out',
+                'Balance',
+                s.status === 'Imported' ? 'Match payment' : '',
+              ].map((h, i) => (
+                <th key={i}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -3678,6 +3836,31 @@ function StatementReview({
                   </td>
                 ))}
                 <td>
+                  {s.status === 'Imported' &&
+                    (() => {
+                      const bank = importedRows.find((b) => b.rowIndex === index + 1);
+                      if (!bank) return <span>Unavailable</span>;
+                      if (bank.remaining <= 0)
+                        return <Badge>{bank.category ? 'Categorised' : 'Matched'}</Badge>;
+                      return (
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            disabled={!canEdit || busy}
+                            checked={selectedPayments.includes(bank.id)}
+                            onChange={(e) =>
+                              setSelectedPayments((ids) =>
+                                e.target.checked
+                                  ? [...ids, bank.id]
+                                  : ids.filter((id) => id !== bank.id),
+                              )
+                            }
+                            aria-label={`Select payment row ${index + 1}`}
+                          />
+                          {money(bank.remaining, bank.currency)} left
+                        </label>
+                      );
+                    })()}
                   {canEdit && s.status !== 'Imported' && (
                     <button
                       className="icon-button"
@@ -3695,6 +3878,15 @@ function StatementReview({
           </tbody>
         </table>
       </div>
+      {s.status === 'Imported' && canEdit && selectedPayments.length > 0 && (
+        <StatementPaymentMatch
+          state={state}
+          ids={selectedPayments}
+          action={action}
+          busy={busy}
+          onDone={() => setSelectedPayments([])}
+        />
+      )}
       {s.status === 'Imported' && canEdit && (
         <form
           onSubmit={(e) => {

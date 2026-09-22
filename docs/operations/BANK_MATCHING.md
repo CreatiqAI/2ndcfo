@@ -14,6 +14,20 @@ read-only. Re-review does not rerun AI or reverse/correct already imported ledge
 rows; such changes require a separate correction workflow. Review annotations can
 be recorded for closed periods because they do not change financial values.
 
+### Match payments while reviewing a statement
+
+In **Review again**, tick the outstanding transactions in the **Match payment**
+column. Below the rows, select an invoice/claim for each payment, check the amount
+and reason, then press **Confirm selected matches**. For two RM444 incoming rows,
+select both, then choose the appropriate customer/invoice number separately for
+each reference. No assignment is guessed from equal amounts.
+
+The picker includes approved outstanding documents across all months, restricted
+to the bank currency and payment direction. Fully matched or directly categorised
+rows cannot be selected. Confirmation uses the existing atomic allocation service:
+tenant, role, closed-period, remaining-balance and duplicate-payment protections
+still apply. Invoice payment status refreshes immediately after confirmation.
+
 ## Upload and match
 
 1. Open **Bank Matching → Import statement** and choose the bank account.

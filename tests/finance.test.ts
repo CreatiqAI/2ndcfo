@@ -780,6 +780,36 @@ describe('Document pipeline and statement import', () => {
   });
 });
 describe('Claims lifecycle and access', () => {
+  it('matches two equal incoming payments to separate invoices without reusing either payment', async () => {
+    const db = await getDb();
+    const first = await draftInvoice(admin, 44400),
+      second = await draftInvoice(admin, 44400);
+    for (const invoice of [first, second]) {
+      await db
+        .update(s.invoices)
+        .set({ kind: 'Sales Invoice' })
+        .where(eq(s.invoices.id, invoice.id));
+      await reviewInvoice(admin, { id: invoice.id, version: 1, action: 'approve' });
+    }
+    const a = await bank(44400, 'in'),
+      b = await bank(44400, 'in');
+    const items = [
+      { bankId: a.id, targetId: first.id, targetType: 'invoice', amountMinor: 44400 },
+      { bankId: b.id, targetId: second.id, targetType: 'invoice', amountMinor: 44400 },
+    ];
+    await confirmAllocations(admin, {
+      items,
+      reason: 'Matched distinct references against invoices',
+    });
+    const result = await snapshot(admin);
+    expect(result.invoices.find((i) => i.id === first.id)?.outstandingMinor).toBe(0);
+    expect(result.invoices.find((i) => i.id === second.id)?.outstandingMinor).toBe(0);
+    expect(result.bank.find((row) => row.id === a.id)?.remaining).toBe(0);
+    expect(result.bank.find((row) => row.id === b.id)?.remaining).toBe(0);
+    await expect(
+      confirmAllocations(admin, { items, reason: 'Accidental repeat matching' }),
+    ).rejects.toThrow('remaining');
+  });
   it('calculates missing receipt difference without equating it to a missing record', async () => {
     const c = await createClaim(employee, {
       title: 'Travel',
