@@ -21,6 +21,7 @@ import { bankDraftSchema } from './extraction/provider';
 import { invoiceDueDate } from '../lib/invoice-due-date';
 import { convertMinor } from '../lib/currency';
 import { myrRate } from './fx';
+import { newestFirst } from '../lib/record-order';
 export async function workspaceList(userId: string) {
   return (await getDb())
     .select({
@@ -357,28 +358,35 @@ export async function snapshot(actor: Actor) {
           .select()
           .from(s.salarySlips)
           .where(eq(s.salarySlips.companyId, actor.companyId))
-          .orderBy(desc(s.salarySlips.month))
+          .orderBy(desc(s.salarySlips.month), desc(s.salarySlips.createdAt), s.salarySlips.id)
       : [],
     actor,
     categories,
     currencies,
     summaries,
-    documents: docs.map(({ storageKey, ...d }) => d),
-    invoices: invoiceRows,
-    claims: claimRows,
-    allocations: full ? allocations : [],
-    bank: bankRows,
+    documents: newestFirst(docs, (d) => d.createdAt).map(({ storageKey, ...d }) => d),
+    invoices: newestFirst(invoiceRows, (i) => i.invoiceDate),
+    claims: newestFirst(claimRows, (c) => c.month),
+    allocations: full ? newestFirst(allocations, (a) => a.createdAt) : [],
+    bank: newestFirst(bankRows, (b) => b.date),
     accounts,
-    statements: statements.map((x) => ({
+    statements: newestFirst(statements, (s) => s.month).map((x) => ({
       ...x,
       validation: validateStatement(bankDraftSchema.parse(x.draft), x.month),
     })),
     members: full ? members : members.filter((x) => x.id === actor.userId),
     audit: auditRows,
-    jobs: jobRows,
-    extractions: extracted,
-    obligations,
-    suggestions,
+    jobs: newestFirst(jobRows, (j) => j.createdAt),
+    extractions: newestFirst(extracted, (e) => e.createdAt),
+    obligations: newestFirst(obligations, (o) => o.date),
+    suggestions: [...suggestions].sort(
+      (a, b) =>
+        (bankRows.find((r) => r.id === b.bankId)?.date || '').localeCompare(
+          bankRows.find((r) => r.id === a.bankId)?.date || '',
+        ) ||
+        b.confidence - a.confidence ||
+        a.bankId.localeCompare(b.bankId),
+    ),
     groups,
     provider: process.env.AI_PROVIDER === 'openai' ? 'OpenAI' : 'Manual review · AI not configured',
     extractionModel:

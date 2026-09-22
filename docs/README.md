@@ -2,6 +2,12 @@
 
 Start with [project structure](PROJECT_STRUCTURE.md) and [current delivery status](records/DELIVERY_STATUS.md).
 
+Record lists display newest dates first. Invoices/receipts use their document date,
+bank rows use transaction dates, and claims, salary slips and statement history use
+their period. Originals, processing records and audit events use creation/upload
+dates. Undated invoices appear last. Same-date records have deterministic ordering.
+Statement review preserves original row indexes underneath its date-sorted display.
+
 See [employee claim bundles](operations/CLAIMS.md) for employees, multi-receipt uploads and reimbursements.
 See [salary and payslips](operations/SALARY.md) for monthly employee salary statements and PDF downloads.
 

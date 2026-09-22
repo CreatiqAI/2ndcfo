@@ -478,9 +478,7 @@ export function FinanceApp() {
   const openClaims = state.claims.filter(
     (c) => c.month === month && !['Finance Approved', 'Rejected'].includes(c.status),
   );
-  const reviewQueue = [...monthlyReview].sort(
-    (a, b) => Number(!!b.duplicateOf) - Number(!!a.duplicateOf),
-  );
+  const reviewQueue = monthlyReview;
   const exportLink = (kind: string) => `/api/export?company=${companyId}&kind=${kind}`;
   const docLink = (id: string, start?: number, end?: number) =>
     `/api/documents/${id}?company=${companyId}${start ? '&start=' + start + '&end=' + end : ''}`;
@@ -3674,7 +3672,12 @@ function StatementHistory({
   const [period, setPeriod] = useState('All');
   const [query, setQuery] = useState('');
   const rows = [...state.statements]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .sort(
+      (a, b) =>
+        b.month.localeCompare(a.month) ||
+        b.createdAt.localeCompare(a.createdAt) ||
+        a.id.localeCompare(b.id),
+    )
     .filter((s) => {
       const name = state.documents.find((d) => d.id === s.documentId)?.name || '';
       const account = state.accounts.find((a) => a.id === s.accountId)?.name || '';
@@ -4022,75 +4025,78 @@ function StatementReview({
             </tr>
           </thead>
           <tbody>
-            {draft.rows.map((r, index) => (
-              <tr key={index}>
-                {(
-                  ['date', 'description', 'reference', 'moneyIn', 'moneyOut', 'balance'] as const
-                ).map((k) => (
-                  <td key={k}>
-                    <input
-                      aria-label={`Row ${index + 1} ${k}`}
-                      value={r[k] || ''}
-                      type={k === 'date' ? 'date' : 'text'}
-                      onChange={(e) => edit(index, k, e.target.value)}
-                      disabled={!canEdit || s.status === 'Imported'}
-                    />
+            {draft.rows
+              .map((r, index) => ({ r, index }))
+              .sort((a, b) => b.r.date.localeCompare(a.r.date) || a.index - b.index)
+              .map(({ r, index }) => (
+                <tr key={index}>
+                  {(
+                    ['date', 'description', 'reference', 'moneyIn', 'moneyOut', 'balance'] as const
+                  ).map((k) => (
+                    <td key={k}>
+                      <input
+                        aria-label={`Row ${index + 1} ${k}`}
+                        value={r[k] || ''}
+                        type={k === 'date' ? 'date' : 'text'}
+                        onChange={(e) => edit(index, k, e.target.value)}
+                        disabled={!canEdit || s.status === 'Imported'}
+                      />
+                    </td>
+                  ))}
+                  <td>
+                    {s.status === 'Imported' &&
+                      (() => {
+                        const bank = importedRows.find((b) => b.rowIndex === index + 1);
+                        if (!bank) return <span>Unavailable</span>;
+                        if (bank.remaining <= 0)
+                          return <Badge>{bank.category ? 'Categorised' : 'Matched'}</Badge>;
+                        return (
+                          <>
+                            <label className="checkbox-label">
+                              <input
+                                type="checkbox"
+                                disabled={!canEdit || busy}
+                                checked={selectedPayments.includes(bank.id)}
+                                onChange={(e) =>
+                                  setSelectedPayments((ids) =>
+                                    e.target.checked
+                                      ? [...ids, bank.id]
+                                      : ids.filter((id) => id !== bank.id),
+                                  )
+                                }
+                                aria-label={`Select payment row ${index + 1}`}
+                              />
+                              {money(bank.remaining, bank.currency)} left
+                            </label>
+                            {canEdit && bank.direction === 'out' && bank.allocatedMinor === 0 && (
+                              <button
+                                disabled={busy}
+                                className="text-button"
+                                onClick={() => {
+                                  setExpenseBankId(bank.id);
+                                  setSelectedPayments((ids) => ids.filter((id) => id !== bank.id));
+                                }}
+                              >
+                                Bank handling fee / No receipt
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    {canEdit && s.status !== 'Imported' && (
+                      <button
+                        className="icon-button"
+                        aria-label={`Remove row ${index + 1}`}
+                        onClick={() =>
+                          setDraft({ ...draft, rows: draft.rows.filter((_, i) => i !== index) })
+                        }
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
                   </td>
-                ))}
-                <td>
-                  {s.status === 'Imported' &&
-                    (() => {
-                      const bank = importedRows.find((b) => b.rowIndex === index + 1);
-                      if (!bank) return <span>Unavailable</span>;
-                      if (bank.remaining <= 0)
-                        return <Badge>{bank.category ? 'Categorised' : 'Matched'}</Badge>;
-                      return (
-                        <>
-                          <label className="checkbox-label">
-                            <input
-                              type="checkbox"
-                              disabled={!canEdit || busy}
-                              checked={selectedPayments.includes(bank.id)}
-                              onChange={(e) =>
-                                setSelectedPayments((ids) =>
-                                  e.target.checked
-                                    ? [...ids, bank.id]
-                                    : ids.filter((id) => id !== bank.id),
-                                )
-                              }
-                              aria-label={`Select payment row ${index + 1}`}
-                            />
-                            {money(bank.remaining, bank.currency)} left
-                          </label>
-                          {canEdit && bank.direction === 'out' && bank.allocatedMinor === 0 && (
-                            <button
-                              disabled={busy}
-                              className="text-button"
-                              onClick={() => {
-                                setExpenseBankId(bank.id);
-                                setSelectedPayments((ids) => ids.filter((id) => id !== bank.id));
-                              }}
-                            >
-                              Bank handling fee / No receipt
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  {canEdit && s.status !== 'Imported' && (
-                    <button
-                      className="icon-button"
-                      aria-label={`Remove row ${index + 1}`}
-                      onClick={() =>
-                        setDraft({ ...draft, rows: draft.rows.filter((_, i) => i !== index) })
-                      }
-                    >
-                      <X size={15} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

@@ -14,6 +14,7 @@ so Next.js, npm, TypeScript and Vercel discover it normally.
       money-calendar.tsx Month selection for Money In/Out records and summary cards
       payslip-template-settings.tsx  Salary design controls, logo upload and PDF preview
     lib/                  Shared pure UI/data helpers, including invoice month grouping
+      record-order.ts     Stable newest-first ordering with undated records last
     server/               Finance services, authentication and integrations
       db/                 Drizzle schema and database adapter
       payslip-template.ts Workspace template validation, logo normalisation and saving

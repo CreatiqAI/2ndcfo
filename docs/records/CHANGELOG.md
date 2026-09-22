@@ -1,5 +1,17 @@
 # Project change record
 
+## 23 September 2026 — newest-first record lists
+
+- Applied stable date ordering to Money In/Out, invoices/documents, claims, salary,
+  bank rows/history, allocation history, processing records and manual target lists.
+  Dashboard review queue follows invoice dates. Suggestion selection still uses
+  confidence; selected suggestions display by bank date.
+- Statement review sorts its display while preserving source indexes for edits,
+  removal and allocation selection. Undated records sort last. CSVs based on the
+  workspace snapshot inherit the same order. No financial data or schema changed.
+- All 77 tests and production build passed, including cross-year, missing-date,
+  timestamp/month ordering, deterministic ties and non-mutating sorting checks.
+
 ## 23 September 2026 — remove conflicting match suggestions
 
 - Main suggestions now select highest-confidence pairs without reusing a bank row
