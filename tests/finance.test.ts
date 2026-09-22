@@ -22,6 +22,12 @@ import { trashRecord } from '../src/server/record-trash';
 import { myrRate } from '../src/server/fx';
 import { createSalary, getSalary, salaryAmounts } from '../src/server/salary';
 import { salaryPdf, type SalaryDetails } from '../src/server/salary-pdf';
+import {
+  changePayslipTemplate,
+  preparePayslipTemplate,
+  templateSample,
+} from '../src/server/payslip-template';
+import sharp from 'sharp';
 import { createClaim, changeClaim } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
@@ -294,6 +300,57 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('validates logos, scopes template updates and snapshots the design into new payslips', async () => {
+    await expect(changePayslipTemplate(employee, {})).rejects.toThrow('role');
+    await expect(preparePayslipTemplate({ logo: 'https://example.com/logo.png' })).rejects.toThrow(
+      'PNG',
+    );
+    await expect(
+      preparePayslipTemplate({ logo: 'data:image/png;base64,bm90YW5pbWFnZQ==' }),
+    ).rejects.toThrow('could not');
+    const jpeg = await sharp({
+      create: { width: 400, height: 200, channels: 3, background: '#109fea' },
+    })
+      .jpeg()
+      .toBuffer();
+    const template = await preparePayslipTemplate({
+      title: 'Monthly Payslip',
+      accent: '#109fea',
+      logo: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
+      showSignature: false,
+    });
+    const metadata = await sharp(Buffer.from(template.logo.split(',')[1], 'base64')).metadata();
+    expect([metadata.format, metadata.width, metadata.height]).toEqual(['png', 256, 128]);
+    const db = await getDb();
+    const before = (
+      await db.select().from(s.companies).where(eq(s.companies.id, admin.companyId))
+    )[0].payslipTemplate;
+    const preview = await changePayslipTemplate(admin, template, true);
+    expect('pdf' in preview).toBe(true);
+    expect(
+      (await db.select().from(s.companies).where(eq(s.companies.id, admin.companyId)))[0]
+        .payslipTemplate,
+    ).toEqual(before);
+    await changePayslipTemplate(admin, template);
+    expect(
+      (await db.select().from(s.companies).where(eq(s.companies.id, other.companyId)))[0]
+        .payslipTemplate,
+    ).toEqual({});
+    const created = await createSalary(admin, {
+      employeeId: employee.userId,
+      month: '2026-08',
+      basic: '100',
+    });
+    await changePayslipTemplate(admin, { title: 'Changed' });
+    const saved = (await getSalary(admin, created.id)).details as SalaryDetails;
+    expect(saved.template?.title).toBe('Monthly Payslip');
+    expect(saved.template?.logo).toBe(template.logo);
+    expect((await PDFDocument.load(await salaryPdf(saved))).getPageCount()).toBe(1);
+    expect(
+      (await PDFDocument.load(await salaryPdf(templateSample(undefined)))).getPageCount(),
+    ).toBe(1);
+    await changePayslipTemplate(admin, {});
+  });
   it('calculates salary cents, protects payroll access and generates a single-page payslip', async () => {
     expect(salaryAmounts(['2800', '120', '90', '70', '250'], '100').netMinor).toBe(323000);
     expect(() => salaryAmounts(['10'], '11')).toThrow('exceed');

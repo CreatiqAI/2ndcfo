@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import type { snapshot } from '@/server/workspace';
 import { PdfPreview } from './pdf-preview';
+import { PayslipTemplateSettings } from './payslip-template-settings';
 import { DocumentCalendar } from './document-calendar';
 import { monthLabel } from '@/lib/document-months';
 type Json<T> = T extends Date
@@ -1622,6 +1623,14 @@ export function FinanceApp() {
           )}
           {page === 'Settings' && (
             <div className="settings-grid">
+              {canEdit && (
+                <PayslipTemplateSettings
+                  key={state.company.id}
+                  companyId={state.company.id}
+                  initial={state.company.payslipTemplate}
+                  onSave={(data) => action('salary.template.save', data, 'Payslip template saved.')}
+                />
+              )}
               <section className="panel settings-panel">
                 <h2>Google sign-in</h2>
                 <p>

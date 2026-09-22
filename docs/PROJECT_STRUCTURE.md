@@ -11,9 +11,11 @@ so Next.js, npm, TypeScript and Vercel discover it normally.
       api/claim-link/     Scoped link redemption, receipt upload and submission
       api/salary/         Finance/Admin payslip PDF downloads
     components/           Finance interface, document calendar and document preview
+      payslip-template-settings.tsx  Salary design controls, logo upload and PDF preview
     lib/                  Shared pure UI/data helpers, including invoice month grouping
     server/               Finance services, authentication and integrations
       db/                 Drizzle schema and database adapter
+      payslip-template.ts Workspace template validation, logo normalisation and saving
   database/
     migrations/           Ordered, immutable SQL migration history
     README.md             Database ownership and migration procedure

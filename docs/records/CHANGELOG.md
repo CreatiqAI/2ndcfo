@@ -1,5 +1,16 @@
 # Project change record
 
+## 23 September 2026 — editable payslip template and logo
+
+- Added Settings → Payslip template for Admin/Finance, including title, accent/page
+  colours, footer, signature visibility, logo upload/removal/size, reset and actual
+  PDF preview. Preview uses sample data and never creates a salary record.
+- Server validates PNG/JPEG size/type/pixels and normalises logos to bounded PNGs.
+  Saves are tenant-scoped and audited. New payslips snapshot the template/logo;
+  existing statements retain their saved design, including legacy monochrome PDFs.
+- Applied and verified migration 0010. All 70 tests, typecheck and production build
+  passed. Rendered and inspected a custom blue payslip with the supplied Creatiq logo.
+
 ## 23 September 2026 — Salary sidebar and payslip PDFs
 
 - Added Finance/Admin Salary page with employee/month selection, five earning

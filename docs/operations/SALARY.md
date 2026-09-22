@@ -1,5 +1,24 @@
 # Salary and payslips
 
+## Template settings
+
+Open **Settings → Payslip template** as Admin or Finance. Set the heading, accent
+and page colours, footer message, logo size and signature-line visibility. Upload
+a PNG/JPEG company logo up to 1 MB (maximum 16 megapixels), or remove it to restore
+the radial mark. Logos are resized to at most 256×256 pixels, with proportions
+preserved, and saved as PNG data with the workspace template.
+
+Use **Preview PDF** to see sample figures in the actual PDF renderer without
+creating a salary record. **Save template** applies the design to future payslips.
+**Reset to default** resets the form; save to apply the reset. Blank footer text
+hides the coloured footer block. Text contrast adjusts to the chosen colours.
+
+Each new salary record snapshots the template and logo. Changing settings does
+not restyle previously saved payslips; pre-template records retain their original
+monochrome design. Settings do not alter salary calculations or permissions.
+
+## Generate a payslip
+
 Admin and Finance users can open **Salary** in the sidebar. Add employees through
 the existing employee management controls first, then select **Generate payslip**.
 

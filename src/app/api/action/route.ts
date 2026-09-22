@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { checkOrigin } from '@/server/auth';
 import { addEmployee } from '@/server/employees';
 import { createSalary } from '@/server/salary';
+import { changePayslipTemplate } from '@/server/payslip-template';
 import { createClaimLink } from '@/server/claim-links';
 import { trashRecord } from '@/server/record-trash';
 import { failure, requestActor, requestUser } from '@/server/http';
@@ -29,6 +30,10 @@ export async function POST(request: Request) {
     const actor = await requestActor(companyId);
     let result: unknown;
     switch (action) {
+      case 'salary.template.save':
+      case 'salary.template.preview':
+        result = await changePayslipTemplate(actor, input, action === 'salary.template.preview');
+        break;
       case 'salary.create':
         result = await createSalary(actor, input);
         break;

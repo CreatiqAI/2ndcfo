@@ -2,6 +2,12 @@
 
 The operational schema is relational, company-scoped and uses PostgreSQL UUID primary keys. Money is BIGINT in minor units (limited to JS safe integers at service boundaries), confidence is 0–100, date-only values use DATE, timestamps use TIMESTAMPTZ. JSONB is used for immutable provider payloads and audit diffs, not as a replacement for financial relationships.
 
+Salary statements use immutable `salary_slips` rows with company/employee/month
+uniqueness. `companies.payslip_template` holds the current appearance settings and
+a bounded, normalised PNG logo; each new salary's `details` snapshots them. Updating
+the workspace template cannot rewrite issued payroll evidence. Migration 0010 is
+additive and defaults to an empty object interpreted as the standard template.
+
 ```mermaid
 erDiagram
   users ||--o{ sessions : authenticates

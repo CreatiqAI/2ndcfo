@@ -66,6 +66,7 @@ export const users = pgTable('users', {
   createdAt: created(),
 });
 export const companies = pgTable('companies', {
+  payslipTemplate: jsonb('payslip_template').notNull().default({}),
   id: id(),
   name: text('name').notNull(),
   currency: text('currency').notNull().default('MYR'),

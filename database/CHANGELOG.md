@@ -1,5 +1,14 @@
 # Database change record
 
+## 23 September 2026 — workspace payslip template
+
+Applied `0010_payslip_template.sql` to active project `btpolwpgnekvyimpqegu`.
+Verified the migration ledger and `finance.companies.payslip_template`: JSONB,
+non-null, default `{}`. Existing company RLS applies. New salary details snapshot
+the settings/logo; existing immutable payslips are not rewritten. Recovery: revert
+the application while retaining the additive column and all saved template data.
+No live template or financial records were changed for testing.
+
 ## 23 September 2026 — salary statements
 
 Applied `0009_salary_slips.sql` to `btpolwpgnekvyimpqegu`, schema `finance`.
