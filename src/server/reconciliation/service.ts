@@ -7,6 +7,7 @@ import {
   claims,
   invoiceCancellations,
   invoices,
+  statements,
 } from '../db/schema';
 import {
   type Actor,
@@ -85,6 +86,16 @@ export async function confirmAllocations(actor: Actor, input: unknown) {
         currency = invoice.currency!;
         direction = invoice.kind === 'Sales Invoice' ? 'in' : 'out';
         date = invoice.invoiceDate!;
+        const [statement] = await tx
+          .select({ month: statements.month })
+          .from(statements)
+          .where(
+            and(eq(statements.id, bank.statementId), eq(statements.companyId, actor.companyId)),
+          );
+        assert(
+          statement && date?.slice(0, 7) === statement.month,
+          'Select an invoice from the bank statement’s month and year.',
+        );
         paid = sumMinor(
           already.filter((x) => x.invoiceId === invoice.id).map((x) => x.amountMinor),
         );

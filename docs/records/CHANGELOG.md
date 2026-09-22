@@ -1,5 +1,15 @@
 # Project change record
 
+## 23 September 2026 — restrict manual invoice matching by statement month
+
+- Restricted invoice choices in statement review and Manual / split / combine to
+  the selected bank statement's month and year. Changing the selected bank payment
+  clears the prior invoice choice. Currency/direction filters remain in effect.
+- Enforced the same rule in the allocation service, including atomic batch rollback
+  if any invoice belongs to another period. Existing allocations are unchanged.
+- Verified wrong-month and same-month/wrong-year rejection, batch rollback and a
+  successful same-period match. No database migration required.
+
 ## 23 September 2026 — manual matching in statement review
 
 - Added per-imported-row payment selection to Review again, mapped by immutable

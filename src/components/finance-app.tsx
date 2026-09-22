@@ -3616,7 +3616,7 @@ function StatementPaymentMatch({
       <h3>Match selected payments ({banks.length})</h3>
       <p>
         Choose the correct invoice for each payment. Invoice numbers distinguish payments with the
-        same amount. All invoice months are available.
+        same amount. Only invoices from the bank statement’s month and year are available.
       </p>
       {banks.map((bank) => {
         const choice = choices[bank.id] || {
@@ -3624,7 +3624,12 @@ function StatementPaymentMatch({
           amount: (bank.remaining / 100).toFixed(2),
         };
         const targets = state.obligations.filter(
-          (t) => t.currency === bank.currency && t.direction === bank.direction,
+          (t) =>
+            t.currency === bank.currency &&
+            t.direction === bank.direction &&
+            (t.type !== 'invoice' ||
+              t.date.slice(0, 7) ===
+                state.statements.find((s) => s.id === bank.statementId)?.month),
         );
         return (
           <div className="detail-block" key={bank.id}>
@@ -4095,8 +4100,8 @@ function Reconciliation({
             </h2>
             <p>
               Automatically suggested from approved invoices and claims dated in {monthLabel(month)}
-              . Confirm a suggestion to record payment. For older invoices, use Manual / split /
-              combine.
+              . Confirm a suggestion to record payment. Manual invoice matches must also use the
+              bank statement’s month and year.
             </p>
           </div>
           {canEdit && (
@@ -4276,8 +4281,8 @@ function Reconciliation({
         <Modal title="Confirm payment allocations" onClose={() => setManual(false)} wide>
           <p>
             Use several rows to split one bank payment across invoices, or combine several bank
-            payments for one invoice. Enter the amount allocated on each row. All months are
-            available here, including older invoices paid this month.
+            payments for one invoice. Enter the amount allocated on each row. Invoice choices are
+            restricted to the selected bank statement’s month and year.
           </p>
           <form
             onSubmit={(e) => {
@@ -4307,7 +4312,9 @@ function Reconciliation({
                     required
                     onChange={(e) =>
                       setLines(
-                        lines.map((l, i) => (i === index ? { ...l, bankId: e.target.value } : l)),
+                        lines.map((l, i) =>
+                          i === index ? { ...l, bankId: e.target.value, target: '' } : l,
+                        ),
                       )
                     }
                   >
@@ -4332,11 +4339,23 @@ function Reconciliation({
                     }
                   >
                     <option value="">Select document</option>
-                    {state.obligations.map((t) => (
-                      <option key={t.id} value={`${t.type}:${t.id}`}>
-                        {t.party} · {t.number || 'Claim'} · {money(t.outstanding, t.currency)}
-                      </option>
-                    ))}
+                    {state.obligations
+                      .filter((t) => {
+                        const bank = state.bank.find((b) => b.id === line.bankId);
+                        if (!bank) return false;
+                        return (
+                          t.currency === bank.currency &&
+                          t.direction === bank.direction &&
+                          (t.type !== 'invoice' ||
+                            t.date.slice(0, 7) ===
+                              state.statements.find((s) => s.id === bank.statementId)?.month)
+                        );
+                      })
+                      .map((t) => (
+                        <option key={t.id} value={`${t.type}:${t.id}`}>
+                          {t.party} · {t.number || 'Claim'} · {money(t.outstanding, t.currency)}
+                        </option>
+                      ))}
                   </select>
                 </FormField>
                 <FormField label="Allocate amount">

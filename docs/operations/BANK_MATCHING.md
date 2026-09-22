@@ -22,8 +22,10 @@ and reason, then press **Confirm selected matches**. For two RM444 incoming rows
 select both, then choose the appropriate customer/invoice number separately for
 each reference. No assignment is guessed from equal amounts.
 
-The picker includes approved outstanding documents across all months, restricted
-to the bank currency and payment direction. Fully matched or directly categorised
+Invoice pickers only include approved outstanding invoices from the bank
+statement's exact month and year, with matching currency and payment direction.
+The server also enforces this for all invoice allocations. Changing a bank payment
+in Manual / split / combine clears the previously selected target. Fully matched or directly categorised
 rows cannot be selected. Confirmation uses the existing atomic allocation service:
 tenant, role, closed-period, remaining-balance and duplicate-payment protections
 still apply. Invoice payment status refreshes immediately after confirmation.
@@ -44,9 +46,9 @@ still apply. Invoice payment status refreshes immediately after confirmation.
    before it records a payment.
 
 For example, a September 2026 statement uploaded in October opens September
-2026 and suggests September invoices. A September payment settling an August
-invoice can still be allocated using **Manual / split / combine**, which includes
-all periods. Automatic combined/split suggestions stay within one month.
+2026 and suggests September invoices. A September statement cannot be manually
+matched to an August invoice or a September invoice from another year. This also
+applies to Manual / split / combine. Existing confirmed allocations are preserved.
 
 The existing statement month and invoice/claim dates are used. No database
 migration, date rewriting or extra AI request is needed for month matching.

@@ -880,6 +880,32 @@ describe('Claims lifecycle and access', () => {
   });
 });
 describe('Reconciliation transaction invariants', () => {
+  it('rejects invoice matches from another statement month or year and rolls back the batch', async () => {
+    const db = await getDb();
+    const same = await approvedInvoice(admin, 10000);
+    const payment = await bank(30000);
+    for (const date of ['2026-08-01', '2025-09-01']) {
+      const invoice = await draftInvoice(admin, 10000);
+      await db.update(s.invoices).set({ invoiceDate: date }).where(eq(s.invoices.id, invoice.id));
+      await reviewInvoice(admin, { id: invoice.id, version: 1, action: 'approve' });
+      await expect(
+        confirmAllocations(admin, {
+          items: [
+            ...allocate(payment.id, same.id, 10000).items,
+            ...allocate(payment.id, invoice.id, 10000).items,
+          ],
+          reason: 'Check exact statement period',
+        }),
+      ).rejects.toThrow('month and year');
+      expect(
+        await db
+          .select()
+          .from(s.allocations)
+          .where(eq(s.allocations.bankTransactionId, payment.id)),
+      ).toHaveLength(0);
+    }
+    await confirmAllocations(admin, allocate(payment.id, same.id, 10000));
+  });
   it('supports partial and combined payment settlement', async () => {
     const i = await approvedInvoice(admin, 1000000),
       b1 = await bank(400000),
