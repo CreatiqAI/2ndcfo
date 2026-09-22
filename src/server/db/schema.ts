@@ -9,6 +9,7 @@ import {
   jsonb,
   unique,
   index,
+  boolean,
 } from 'drizzle-orm/pg-core';
 const id = () => uuid('id').primaryKey().defaultRandom();
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -73,6 +74,7 @@ export const claims = pgTable(
     month: text('month').notNull(),
     currency: text('currency').notNull(),
     claimedMinor: money('claimed_minor').notNull(),
+    autoTotal: boolean('auto_total').notNull().default(false),
     status: text('status').notNull().default('Draft'),
     managerId: uuid('manager_id').references(() => users.id),
     financeId: uuid('finance_id').references(() => users.id),

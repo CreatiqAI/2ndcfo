@@ -11,6 +11,7 @@ import * as s from '../src/server/db/schema';
 import { authenticate, actorFor, checkOrigin, sessionUser } from '../src/server/auth';
 import { type Actor, minor, paymentStatus, sumMinor } from '../src/server/core';
 import { snapshot } from '../src/server/workspace';
+import { addEmployee } from '../src/server/employees';
 import { createClaim, changeClaim } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
@@ -282,6 +283,63 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('creates employee logins with scoped roles and never changes an existing password', async () => {
+    await expect(
+      addEmployee(employee, {
+        name: 'New Person',
+        email: 'newperson@test.invalid',
+        password: 'abcdefgh',
+        department: 'Operations',
+      }),
+    ).rejects.toThrow('role');
+    const created = await addEmployee(admin, {
+      name: 'New Person',
+      email: 'newperson@test.invalid',
+      password: 'abcdefgh',
+      department: 'Operations',
+    });
+    const token = await authenticate(
+      { email: 'newperson@test.invalid', password: 'abcdefgh' },
+      false,
+    );
+    expect((await sessionUser(token)).id).toBe(created.id);
+    expect((await actorFor(created.id, admin.companyId)).role).toBe('Employee');
+    await expect(actorFor(created.id, other.companyId)).rejects.toThrow('access');
+    await expect(
+      addEmployee(admin, {
+        name: 'New Person',
+        email: 'newperson@test.invalid',
+        password: 'newpassword',
+        department: 'Other',
+      }),
+    ).rejects.toThrow('already');
+  });
+  it('totals receipt bundles once, freezes on approval and includes approved claims in Money Out', async () => {
+    const c = await createClaim(admin, {
+      title: 'Bundled expenses',
+      month,
+      claimed: '0',
+      currency: 'MYR',
+      employeeId: employee.userId,
+      autoTotal: true,
+    });
+    await draftInvoice(admin, 1200, c.id);
+    await draftInvoice(admin, 2300, c.id);
+    const draft = await snapshot(admin);
+    expect(draft.claims.find((x) => x.id === c.id)?.claimedMinor).toBe(3500);
+    expect(draft.claims.find((x) => x.id === c.id)?.receiptCount).toBe(2);
+    const totalBefore = draft.summaries.find((x) => x.kind === 'Supplier Invoice')!.total;
+    await changeClaim(employee, { id: c.id, action: 'submit' });
+    await changeClaim(manager, { id: c.id, action: 'manager' });
+    await changeClaim(admin, { id: c.id, action: 'finance' });
+    const approved = await snapshot(admin);
+    expect(approved.claims.find((x) => x.id === c.id)?.claimedMinor).toBe(3500);
+    expect(approved.summaries.find((x) => x.kind === 'Supplier Invoice')!.total).toBe(
+      totalBefore + 3500,
+    );
+    expect(approved.obligations.filter((x) => x.id === c.id)).toHaveLength(1);
+    expect((await snapshot(other)).claims.some((x) => x.id === c.id)).toBe(false);
+  });
   it('uses payment terms for overdue status and totals without overwriting the approved due date', async () => {
     const i = await draftInvoice(admin, 176400);
     const db = await getDb();

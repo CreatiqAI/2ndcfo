@@ -1,5 +1,14 @@
 # Database change record
 
+## 22 September 2026 — automatic claim bundles
+
+Applied and verified `0006_claim_auto_totals.sql` on active `finance` schema.
+Added `claims.auto_total` boolean, non-null, default false. Existing claims keep
+their declared totals. New automatic claims derive draft totals from receipts;
+submission/approval persists the total using existing audit and locking rules.
+Recovery: revert application code while retaining this additive column and all
+stored evidence. No destructive rollback is needed.
+
 ## 22 September 2026 — upload payment terms
 
 Applied `0005_upload_payment_terms.sql` to `btpolwpgnekvyimpqegu`, schema `finance`.
@@ -33,5 +42,6 @@ read checks passed. Old project retained; backup recorded in private
 | `0003_cancellations.sql` | Immutable invoice cancellation records | Applied |
 | `0004_google_login.sql` | Google subject identity field | Applied; provider setup postponed |
 | `0005_upload_payment_terms.sql` | Durable default payment days per upload | Applied |
+| `0006_claim_auto_totals.sql` | Optional automatic receipt totals for claims | Applied |
 
-The current cloud database records these five versions in `finance.schema_migrations`.
+The current cloud database records these six versions in `finance.schema_migrations`.

@@ -1,5 +1,19 @@
 # Project change record
 
+## 22 September 2026 — claim bundles and employees
+
+- Added automatic receipt-total mode for new claims, preserving existing declared
+  totals. Group receipts under employee claim rows in Documents and Money Out;
+  finance-approved claim totals/payments enter Money Out exactly once.
+- New claims open multi-file receipt upload; Done returns to claim details.
+- Added Admin-only employee login creation from Claims with existing password
+  hashing, Employee membership, tenant checks and credential-free audit records.
+  Existing accounts cannot have passwords changed through this action.
+- Applied migration 0006; verified column/default and ledger in active Supabase.
+  Added tests for bundles through approval, totals, obligations and employee access.
+  All 62 tests and production build passed. No live financial test records created.
+- Operating guide: `docs/operations/CLAIMS.md`.
+
 ## 22 September 2026 — upload payment-terms selector
 
 - Added batch payment-day choices beside document upload. Persisted each file's

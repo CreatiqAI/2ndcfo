@@ -404,6 +404,66 @@ export function FinanceApp() {
         (filter === 'Overdue' ? i.isOverdue : i.paymentStatus === filter) ||
         i.reviewStatus === filter),
   );
+  const claimBundles = () => (
+    <section className="panel">
+      <div className="section-heading">
+        <h2>Employee claim bundles</h2>
+        <p>Receipts stay together. Only finance-approved claims enter payment totals.</p>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Claim</th>
+              <th>Month</th>
+              <th>Receipts</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {state.claims
+              .filter(
+                (c) =>
+                  matches(c) &&
+                  (filter === 'All' ||
+                    c.status === filter ||
+                    c.paymentStatus === filter ||
+                    (filter === 'Draft' &&
+                      c.status !== 'Finance Approved' &&
+                      c.status !== 'Rejected')),
+              )
+              .map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <b>{c.employeeName} claim</b>
+                    <small>{c.title}</small>
+                  </td>
+                  <td>{c.month}</td>
+                  <td>{c.receiptCount}</td>
+                  <td>{money(c.claimedMinor, c.currency)}</td>
+                  <td>
+                    <Badge>{c.paymentStatus}</Badge>
+                  </td>
+                  <td>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setSelectedClaim(c);
+                        setModal('claim');
+                      }}
+                    >
+                      Open receipts <ArrowRight size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
   const invoiceTable = (rows: Invoice[], review = false) => (
     <div className="table-scroll">
       <table>
@@ -1031,6 +1091,7 @@ export function FinanceApp() {
                 />
                 {invoiceTable(moneyRows)}
               </section>
+              {page === 'Money Out' && claimBundles()}
             </>
           )}
           {page === 'Documents' && (
@@ -1108,19 +1169,23 @@ export function FinanceApp() {
                   </table>
                 </div>
               ) : (
-                <DocumentCalendar
-                  key={companyId}
-                  invoices={state.invoices.filter(
-                    (i) =>
-                      matches(i) &&
-                      (filter === 'All' ||
-                        (filter === 'Duplicate' && !!i.duplicateOf) ||
-                        (filter === 'Needs Review' &&
-                          ['Ready', 'Needs Review'].includes(i.reviewStatus)) ||
-                        i.reviewStatus === filter),
-                  )}
-                  renderTable={(rows) => invoiceTable(rows, true)}
-                />
+                <>
+                  <DocumentCalendar
+                    key={companyId}
+                    invoices={state.invoices.filter(
+                      (i) =>
+                        !i.claimId &&
+                        matches(i) &&
+                        (filter === 'All' ||
+                          (filter === 'Duplicate' && !!i.duplicateOf) ||
+                          (filter === 'Needs Review' &&
+                            ['Ready', 'Needs Review'].includes(i.reviewStatus)) ||
+                          i.reviewStatus === filter),
+                    )}
+                    renderTable={(rows) => invoiceTable(rows, true)}
+                  />
+                  {claimBundles()}
+                </>
               )}
             </section>
           )}
@@ -1128,6 +1193,11 @@ export function FinanceApp() {
             <section className="panel">
               <div className="section-heading">
                 <h2>Claim requests</h2>
+                {state.actor.role === 'Admin' && (
+                  <button className="button primary" onClick={() => setModal('employee-create')}>
+                    <Plus size={16} /> Add employee
+                  </button>
+                )}
                 <a className="button secondary" href={exportLink('claims')}>
                   <Download size={16} />
                   Export CSV
@@ -1384,8 +1454,11 @@ export function FinanceApp() {
             claimId={selectedClaim?.id}
             onDone={async () => {
               await refresh(companyId);
-              close();
-              navigate(selectedClaim ? 'Claims' : 'Documents');
+              if (selectedClaim) setModal('claim');
+              else {
+                close();
+                navigate('Documents');
+              }
             }}
             notify={notify}
           />
@@ -1404,6 +1477,36 @@ export function FinanceApp() {
           />
         </Modal>
       )}
+      {modal === 'employee-create' && (
+        <Modal title="Add employee" onClose={close}>
+          <p>
+            Create an Employee login for this workspace. Share the login details with the employee
+            yourself; no email is sent. Existing accounts can be added in Settings.
+          </p>
+          <SimpleForm
+            busy={busy}
+            submit="Add employee"
+            fields={[
+              { name: 'name', label: 'Employee name' },
+              { name: 'email', label: 'Email address', type: 'email' },
+              { name: 'department', label: 'Department' },
+              {
+                name: 'password',
+                label: 'Login password (at least 8 characters)',
+                type: 'password',
+              },
+            ]}
+            onSubmit={async (data) => {
+              await action(
+                'employee.create',
+                data,
+                'Employee added. Select them when creating a claim.',
+              );
+              close();
+            }}
+          />
+        </Modal>
+      )}
       {modal === 'claim-create' && (
         <Modal title="New claim" onClose={close}>
           <CreateClaim
@@ -1418,7 +1521,7 @@ export function FinanceApp() {
               );
               const next = await refresh(companyId);
               setSelectedClaim(next!.state.claims.find((x) => x.id === result.id)!);
-              setModal('claim');
+              setModal('upload');
             }}
           />
         </Modal>
@@ -2414,9 +2517,12 @@ function CreateClaim({
       onSubmit={(e) => {
         e.preventDefault();
         setError('');
-        void onSave(Object.fromEntries(new FormData(e.currentTarget))).catch((e) =>
-          setError(e.message),
-        );
+        const data = Object.fromEntries(new FormData(e.currentTarget));
+        void onSave({
+          ...data,
+          claimed: data.claimed || '0',
+          autoTotal: !String(data.claimed || '').trim(),
+        }).catch((e) => setError(e.message));
       }}
     >
       <FormField label="Claim title">
@@ -2426,8 +2532,8 @@ function CreateClaim({
         <FormField label="Claim period">
           <input type="month" name="month" defaultValue={month} required />
         </FormField>
-        <FormField label="Claimed amount">
-          <input name="claimed" inputMode="decimal" placeholder="0.00" required />
+        <FormField label="Claimed amount (optional)">
+          <input name="claimed" inputMode="decimal" placeholder="Automatically total receipts" />
         </FormField>
         <FormField label="Currency">
           <select name="currency" defaultValue={state.company.currency}>
@@ -2452,7 +2558,8 @@ function CreateClaim({
         </FormField>
       </div>
       <div className="notice">
-        Enter the amount being claimed. We’ll compare it with the supporting receipt total.
+        Leave the amount blank to automatically total all uploaded receipts in this claim. Enter an
+        amount only if you want to compare a specific claim amount against receipts.
       </div>
       {error && <div className="form-error">{error}</div>}
       <button className="button primary full" disabled={busy}>
@@ -2500,7 +2607,7 @@ function ClaimDetail({
       </div>
       <div className="claim-totals">
         <div>
-          <small>Claimed amount</small>
+          <small>{c.autoTotal ? 'Calculated claim total' : 'Claimed amount'}</small>
           <b>{money(c.claimedMinor, c.currency)}</b>
         </div>
         <div>

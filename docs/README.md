@@ -2,6 +2,8 @@
 
 Start with [project structure](PROJECT_STRUCTURE.md) and [current delivery status](records/DELIVERY_STATUS.md).
 
+See [employee claim bundles](operations/CLAIMS.md) for employees, multi-receipt uploads and reimbursements.
+
 See [monthly bank matching](operations/BANK_MATCHING.md) for statement upload and payment review.
 See [invoice approvals and overdue balances](operations/INVOICE_APPROVAL.md) for bulk approval and payment status.
 

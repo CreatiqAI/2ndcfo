@@ -187,12 +187,14 @@ export async function snapshot(actor: Actor) {
     const paidMinor = sumMinor(
       allocations.filter((a) => a.claimId === c.id).map((b) => b.amountMinor),
     );
+    const summary = claimSummary(
+      c,
+      invoices.filter((i) => i.claimId === c.id),
+    );
     return {
       ...c,
-      ...claimSummary(
-        c,
-        invoices.filter((i) => i.claimId === c.id),
-      ),
+      ...summary,
+      claimedMinor: summary.effectiveClaimedMinor,
       employeeName: members.find((m) => m.id === c.employeeId)?.name || 'Employee',
       paidMinor,
       paymentStatus:
@@ -286,6 +288,12 @@ export async function snapshot(actor: Actor) {
     await db.select().from(s.extractions).where(eq(s.extractions.companyId, actor.companyId))
   ).filter((e) => docIds.has(e.documentId));
   const summaries = ['Sales Invoice', 'Supplier Invoice'].map((kind) => {
+    const approvedClaims =
+      kind === 'Supplier Invoice'
+        ? claimRows.filter(
+            (c) => c.status === 'Finance Approved' && c.currency === company.currency,
+          )
+        : [];
     const list = invoiceRows.filter(
       (x) =>
         !x.claimId &&
@@ -296,9 +304,15 @@ export async function snapshot(actor: Actor) {
     );
     return {
       kind,
-      total: sumMinor(list.map((x) => x.totalMinor || 0)),
-      paid: sumMinor(list.map((x) => x.paidMinor)),
-      outstanding: sumMinor(list.map((x) => x.outstandingMinor)),
+      total: sumMinor([
+        ...list.map((x) => x.totalMinor || 0),
+        ...approvedClaims.map((c) => c.claimedMinor),
+      ]),
+      paid: sumMinor([...list.map((x) => x.paidMinor), ...approvedClaims.map((c) => c.paidMinor)]),
+      outstanding: sumMinor([
+        ...list.map((x) => x.outstandingMinor),
+        ...approvedClaims.map((c) => c.claimedMinor - c.paidMinor),
+      ]),
       overdue: sumMinor(list.filter((x) => x.isOverdue).map((x) => x.outstandingMinor)),
     };
   });

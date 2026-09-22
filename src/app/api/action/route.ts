@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { checkOrigin } from '@/server/auth';
+import { addEmployee } from '@/server/employees';
 import { failure, requestActor, requestUser } from '@/server/http';
 import { assignMember, createWorkspace, rejectSuggestion } from '@/server/workspace';
 import { cancelInvoice, reviewInvoice, splitInvoice } from '@/server/invoices/service';
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
     const actor = await requestActor(companyId);
     let result: unknown;
     switch (action) {
+      case 'employee.create':
+        result = await addEmployee(actor, input);
+        break;
       case 'invoice.review':
         result = await reviewInvoice(actor, { ...input, action: input.operation });
         break;

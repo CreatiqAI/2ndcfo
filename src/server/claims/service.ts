@@ -18,8 +18,14 @@ export function claimSummary(
   receipts: (typeof invoices.$inferSelect)[],
 ) {
   const active = receipts.filter((x) => x.reviewStatus !== 'Rejected');
-  const total = sumMinor(active.map((x) => x.totalMinor || 0));
-  const difference = claim.claimedMinor - total;
+  const total = sumMinor(
+    active.filter((x) => x.currency === claim.currency).map((x) => x.totalMinor || 0),
+  );
+  const effectiveClaimedMinor =
+    claim.autoTotal && ['Draft', 'Needs Review'].includes(claim.status)
+      ? total
+      : claim.claimedMinor;
+  const difference = effectiveClaimedMinor - total;
   const unknown = active.filter(
     (x) =>
       !x.totalMinor ||
@@ -33,13 +39,14 @@ export function claimSummary(
   ).length;
   const duplicates = active.filter((x) => x.duplicateOf).length;
   const categories: Record<string, number> = {};
-  for (const r of active)
+  for (const r of active.filter((x) => x.currency === claim.currency))
     categories[r.category || 'Unknown'] = sumMinor([
       categories[r.category || 'Unknown'] || 0,
       r.totalMinor || 0,
     ]);
   return {
     receiptTotal: total,
+    effectiveClaimedMinor,
     difference,
     unknown,
     duplicates,
@@ -57,6 +64,7 @@ export async function createClaim(actor: Actor, input: unknown) {
       claimed: z.string(),
       currency: z.enum(currencies),
       employeeId: z.uuid().optional(),
+      autoTotal: z.boolean().default(false),
     })
     .parse(input);
   const claimedMinor = minor(data.claimed);
@@ -79,6 +87,7 @@ export async function createClaim(actor: Actor, input: unknown) {
         title: data.title,
         month: data.month,
         claimedMinor,
+        autoTotal: data.autoTotal,
         currency: data.currency,
         department: member.department,
       })
@@ -116,7 +125,10 @@ export async function changeClaim(actor: Actor, input: unknown) {
       .innerJoin(documents, eq(documents.id, jobs.documentId))
       .where(eq(documents.claimId, claim.id));
     const summary = claimSummary(claim, receipts);
-    const update: Partial<typeof claims.$inferInsert> = {};
+    const update: Partial<typeof claims.$inferInsert> =
+      claim.autoTotal && ['Draft', 'Needs Review'].includes(claim.status)
+        ? { claimedMinor: summary.effectiveClaimedMinor }
+        : {};
     const owns = actor.userId === claim.employeeId;
     const finance = ['Admin', 'Finance'].includes(actor.role);
     if (data.action === 'submit' || data.action === 'adjust') {
@@ -131,6 +143,7 @@ export async function changeClaim(actor: Actor, input: unknown) {
           'Enter an amount and adjustment reason.',
         );
         update.claimedMinor = minor(data.claimed);
+        update.autoTotal = false;
         assert(update.claimedMinor >= 0, 'Claim amount cannot be negative.');
       } else {
         assert(
@@ -138,6 +151,7 @@ export async function changeClaim(actor: Actor, input: unknown) {
           'Finish extracting all receipts before submitting.',
         );
         update.status = summary.needsReview ? 'Needs Review' : 'Submitted';
+        if (claim.autoTotal) update.claimedMinor = summary.receiptTotal;
       }
     } else {
       if (actor.role === 'Manager')
