@@ -82,6 +82,7 @@ type UploadEntry = {
   claimId?: string;
   batchId: string;
   paymentDays: string;
+  payslip?: boolean;
   uploadCurrency: string;
   status: 'queued' | 'uploading' | 'uploaded' | 'failed';
   error?: string;
@@ -393,6 +394,7 @@ export function FinanceApp() {
       form.set('file', entry.file);
       form.set('batchId', entry.batchId);
       form.set('uploadCurrency', entry.uploadCurrency);
+      if (entry.payslip) form.set('purpose', 'payslip');
       if (entry.claimId) form.set('claimId', entry.claimId);
       else if (entry.paymentDays !== '') form.set('defaultPaymentTermDays', entry.paymentDays);
       try {
@@ -438,6 +440,7 @@ export function FinanceApp() {
       claimId,
       paymentDays,
       uploadCurrency,
+      payslip: modal === 'upload-payslip',
       batchId,
       status: 'queued',
     }));
@@ -513,7 +516,9 @@ export function FinanceApp() {
     (j) =>
       ['queued', 'processing', 'failed'].includes(j.status) &&
       state.documents.some(
-        (d) => d.id === j.documentId && (page === 'Claims' ? !!d.claimId : d.purpose === 'invoice'),
+        (d) =>
+          d.id === j.documentId &&
+          (page === 'Claims' ? !!d.claimId : ['invoice', 'payslip'].includes(d.purpose)),
       ),
   );
   const claimBundles = () => (
@@ -879,6 +884,18 @@ export function FinanceApp() {
                 >
                   <Plus size={17} />
                   Upload documents
+                </button>
+              )}
+              {page === 'Money Out' && canEdit && (
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    setSelectedClaim(null);
+                    setModal('upload-payslip');
+                  }}
+                >
+                  <UploadCloud size={17} />
+                  Upload payslip
                 </button>
               )}
               {page === 'Claims' && state.actor.role !== 'Accountant' && (
@@ -1953,9 +1970,26 @@ export function FinanceApp() {
           </footer>
         </main>
       </div>
-      {modal === 'upload' && (
-        <Modal title={selectedClaim ? 'Upload claim receipts' : 'Upload documents'} onClose={close}>
+      {(modal === 'upload' || modal === 'upload-payslip') && (
+        <Modal
+          title={
+            modal === 'upload-payslip'
+              ? 'Upload salary payslips'
+              : selectedClaim
+                ? 'Upload claim receipts'
+                : 'Upload documents'
+          }
+          onClose={close}
+        >
+          {modal === 'upload-payslip' && (
+            <p>
+              Each payslip becomes a Payroll expense using net salary payable. Review the employee,
+              salary month and net amount before approval and bank matching. Generating a payslip in
+              Salary alone does not record an expense.
+            </p>
+          )}
           <UploadForm
+            payslip={modal === 'upload-payslip'}
             claimId={selectedClaim?.id}
             onUpload={startUploads}
             onDone={async () => {
@@ -2785,11 +2819,13 @@ function SimpleForm({
   );
 }
 function UploadForm({
+  payslip = false,
   claimId,
   onUpload,
   onDone,
   notify,
 }: {
+  payslip?: boolean;
   claimId?: string;
   onUpload: (files: File[], paymentDays: string, batchId: string, uploadCurrency: string) => void;
   onDone: () => Promise<unknown>;
@@ -2860,7 +2896,7 @@ function UploadForm({
           </p>
         </FormField>
       )}
-      {!claimId && (
+      {!claimId && !payslip && (
         <FormField label="Default payment terms for this upload">
           <select value={paymentDays} onChange={(e) => setPaymentDays(e.target.value)}>
             <option value="">Use document terms only</option>
@@ -3100,6 +3136,7 @@ function InvoiceReview({
                 {[
                   'Sales Invoice',
                   'Supplier Invoice',
+                  'Payslip',
                   'Receipt',
                   'Claim Receipt',
                   'Other Financial Document',

@@ -1,5 +1,9 @@
 # Approvals and overdue invoices
 
+Money Out supports **Upload payslip**. Salary uploads become Payroll obligations
+using net pay, grouped by salary month and approved before outgoing bank matching.
+See [salary upload instructions](SALARY.md#upload-payslips-to-money-out).
+
 ## Money In and Money Out calendar
 
 Money Out also includes categorised outgoing bank fees and no-receipt expenses.

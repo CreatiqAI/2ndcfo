@@ -1,5 +1,17 @@
 # Project change record
 
+## 23 September 2026 — upload and match salary payslips
+
+- Added Money Out → Upload payslip and a Payslip document type. AI extracts net
+  pay, employee and salary period; candidates use Payroll and omit invoice payment
+  terms. Review/approval is required before matching outgoing bank payments.
+- Reuses preserved originals, duplicate review, month/currency/direction checks,
+  allocations and Money Out totals. Generating a Salary slip alone still does not
+  create another expense. Expanded checks with migration 0011; verified live schema.
+- All 73 tests and production build passed. Synthetic GPT-5.6 Luna payslip extracted
+  RM3230 net from RM3330 gross and September 2026 correctly. Tested approval, matching
+  and repeated-payment rejection in the isolated test database.
+
 ## 23 September 2026 — bank fees and no-receipt expenses
 
 - Added a Bank handling fee / No receipt action to unallocated outgoing statement

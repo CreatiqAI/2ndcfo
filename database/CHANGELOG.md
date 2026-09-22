@@ -1,5 +1,13 @@
 # Database change record
 
+## 23 September 2026 — payslip salary expenses
+
+Applied and verified `0011_payslip_expenses.sql` on `btpolwpgnekvyimpqegu`, finance
+schema. Expanded document purpose and invoice kind checks to include payslip and
+Payslip respectively. No rows were rewritten and no test salary data was added to
+production. Recovery: retain the expanded checks and evidence, revert application
+changes if necessary; do not narrow checks while payslip records exist.
+
 ## 23 September 2026 — workspace payslip template
 
 Applied `0010_payslip_template.sql` to active project `btpolwpgnekvyimpqegu`.

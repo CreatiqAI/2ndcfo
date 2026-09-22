@@ -670,6 +670,48 @@ describe('Identity, approval and tenant isolation', () => {
   });
 });
 describe('Document pipeline and statement import', () => {
+  it('uploads salary evidence as a Payroll obligation and matches its approved net pay', async () => {
+    const pdf = await PDFDocument.create();
+    pdf.addPage();
+    const file = { name: 'salary.pdf', data: Buffer.from(await pdf.save()) };
+    await expect(uploadDocument(employee, file, { payslip: true })).rejects.toThrow('role');
+    const doc = await uploadDocument(admin, file, { payslip: true });
+    await processOne(admin.companyId);
+    const db = await getDb();
+    const [record] = await db.select().from(s.invoices).where(eq(s.invoices.documentId, doc.id));
+    expect(record.kind).toBe('Payslip');
+    expect(record.category).toBe('Payroll');
+    expect(record.totalMinor).toBeNull();
+    await reviewInvoice(admin, {
+      id: record.id,
+      version: record.version,
+      action: 'approve',
+      fields: {
+        kind: 'Payslip',
+        party: 'Salary Employee',
+        number: 'SAL-2026-09',
+        invoiceDate: '2026-09-01',
+        dueDate: null,
+        description: 'September net salary',
+        product: null,
+        paymentTerms: null,
+        bankReference: null,
+        subtotal: null,
+        tax: null,
+        total: '1000',
+        currency: 'MYR',
+        category: 'Payroll',
+      },
+    });
+    const payment = await bank(100000, 'out');
+    await confirmAllocations(admin, allocate(payment.id, record.id, 100000));
+    const row = (await snapshot(admin)).invoices.find((i) => i.id === record.id)!;
+    expect(row.paymentStatus).toBe('Paid');
+    expect(row.outstandingMinor).toBe(0);
+    await expect(
+      confirmAllocations(admin, allocate(payment.id, record.id, 100000)),
+    ).rejects.toThrow('remaining');
+  });
   it('retains malformed provider responses without fabricating financial candidates', async () => {
     const pdf = await PDFDocument.create();
     pdf.addPage();

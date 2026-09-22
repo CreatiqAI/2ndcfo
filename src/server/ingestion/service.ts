@@ -21,9 +21,14 @@ export async function uploadDocument(
     claimId?: string;
     defaultPaymentTermDays?: number;
     uploadCurrency?: string;
+    payslip?: boolean;
   },
 ) {
   if (!input.claimId) requireRole(actor, ['Admin', 'Finance']);
+  assert(
+    !input.payslip || !input.claimId,
+    'Payslips must be uploaded as salary expenses, not claim receipts.',
+  );
   const batchId = z.uuid().parse(input.batchId || randomUUID());
   const uploadCurrency = z.enum(currencies).parse(input.uploadCurrency || 'MYR');
   const defaultPaymentTermDays = z
@@ -92,8 +97,8 @@ export async function uploadDocument(
         size: file.data.length,
         hash,
         imageHash,
-        purpose: input.claimId ? 'claim' : 'invoice',
-        defaultPaymentTermDays,
+        purpose: input.claimId ? 'claim' : input.payslip ? 'payslip' : 'invoice',
+        defaultPaymentTermDays: input.payslip ? null : defaultPaymentTermDays,
         uploadCurrency,
       })
       .returning();

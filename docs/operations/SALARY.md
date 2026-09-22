@@ -1,5 +1,21 @@
 # Salary and payslips
 
+## Upload payslips to Money Out
+
+Use **Money Out → Upload payslip** for PDF/JPG/PNG salary evidence. AI extracts
+the employee, salary period and **net salary payable** into a Payslip record under
+Payroll. A month-only period uses day 01 for grouping; missing dates/amounts need
+manual review. Select that month, review the original and extracted values, then
+approve. In **Bank Matching → Review again**, select the outgoing salary payment
+and match it to that employee's Payslip record. Statement and salary month/year,
+currency and payment direction must agree. Matching updates paid/outstanding status.
+
+Gross earnings and statutory deductions are not added as separate expenses by
+this flow. The net salary obligation counts once in Money Out after approval.
+Generating a payslip under Salary alone still does not create a financial expense;
+download and upload it here if you want to match its payment. Uploaded originals,
+duplicate checks, approvals and bank allocations retain the existing evidence trail.
+
 ## Template settings
 
 Open **Settings → Payslips → Payslip template** as Admin or Finance. The button

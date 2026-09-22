@@ -109,7 +109,12 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
               pageStart: x.invoice.pageStart,
             })),
           );
-          const category = categories.includes(item.category || '') ? item.category : null;
+          const isPayslip = !doc.claimId && (doc.purpose === 'payslip' || item.kind === 'Payslip');
+          const category = isPayslip
+            ? 'Payroll'
+            : categories.includes(item.category || '')
+              ? item.category
+              : null;
           const invoiceDate = date(item.invoiceDate),
             dueDate = date(item.dueDate);
           const incomplete =
@@ -134,17 +139,16 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
               claimId: doc.claimId,
               pageStart: item.pageStart,
               pageEnd: item.pageEnd,
-              kind: doc.claimId ? 'Claim Receipt' : item.kind,
+              kind: doc.claimId ? 'Claim Receipt' : isPayslip ? 'Payslip' : item.kind,
               party: item.party,
               number: item.number,
               invoiceDate,
-              dueDate,
+              dueDate: isPayslip ? null : dueDate,
               description: item.description,
               product: item.product,
-              paymentTerms: uploadPaymentTerms(
-                item,
-                doc.claimId ? null : doc.defaultPaymentTermDays,
-              ),
+              paymentTerms: isPayslip
+                ? null
+                : uploadPaymentTerms(item, doc.claimId ? null : doc.defaultPaymentTermDays),
               bankReference: item.bankReference,
               subtotalMinor: subtotal,
               taxMinor: tax,

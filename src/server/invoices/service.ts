@@ -26,6 +26,7 @@ const reviewSchema = z.object({
       kind: z.enum([
         'Sales Invoice',
         'Supplier Invoice',
+        'Payslip',
         'Receipt',
         'Claim Receipt',
         'Other Financial Document',

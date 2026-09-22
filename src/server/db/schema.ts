@@ -145,6 +145,7 @@ export const documents = pgTable(
     size: integer('size').notNull(),
     hash: text('hash').notNull(),
     imageHash: text('image_hash'),
+    // SQL check permits invoice, claim, statement and payslip (migration 0011).
     purpose: text('purpose').notNull(),
     defaultPaymentTermDays: integer('default_payment_term_days'),
     uploadCurrency: text('upload_currency').notNull().default('MYR'),
@@ -193,6 +194,7 @@ export const invoices = pgTable(
     claimId: uuid('claim_id').references(() => claims.id),
     pageStart: integer('page_start').notNull().default(1),
     pageEnd: integer('page_end').notNull().default(1),
+    // Includes Payslip salary obligations alongside invoice/receipt types.
     kind: text('kind').notNull(),
     party: text('party'),
     number: text('number'),
