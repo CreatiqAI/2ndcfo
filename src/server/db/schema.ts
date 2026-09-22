@@ -14,6 +14,24 @@ import {
 const id = () => uuid('id').primaryKey().defaultRandom();
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const money = (name: string) => bigint(name, { mode: 'number' });
+export const claimLinks = pgTable('claim_links', {
+  id: id(),
+  companyId: uuid('company_id').notNull(),
+  claimId: uuid('claim_id').notNull(),
+  createdBy: uuid('created_by').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  redeemedAt: timestamp('redeemed_at', { withTimezone: true }),
+  sessionHash: text('session_hash').unique(),
+  sessionExpiresAt: timestamp('session_expires_at', { withTimezone: true }),
+});
+export const recordTrash = pgTable('record_trash', {
+  id: id(),
+  companyId: uuid('company_id').notNull(),
+  invoiceId: uuid('invoice_id').unique(),
+  claimId: uuid('claim_id').unique(),
+  deleted: boolean('deleted').notNull().default(true),
+});
 export const users = pgTable('users', {
   id: id(),
   email: text('email').notNull().unique(),

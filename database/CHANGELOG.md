@@ -1,5 +1,16 @@
 # Database change record
 
+## 22 September 2026 — one-time claim links and recoverable deletion
+
+Applied `0007_claim_links_and_trash.sql` to active project schema `finance`.
+Added `claim_links` (hashed single-use tokens and scoped expiring sessions) and
+`record_trash` (reversible per-invoice/claim list visibility). Both tables have RLS;
+verified anon/authenticated have no schema usage. Composite foreign keys enforce
+company scope. Financial evidence tables, approvals and allocations are unchanged.
+Verified applied migration ledger and table RLS after migration.
+Recovery: revert application code and retain both additive tables; do not drop
+financial evidence or erase link/trash audit history.
+
 ## 22 September 2026 — automatic claim bundles
 
 Applied and verified `0006_claim_auto_totals.sql` on active `finance` schema.
@@ -43,5 +54,6 @@ read checks passed. Old project retained; backup recorded in private
 | `0004_google_login.sql` | Google subject identity field | Applied; provider setup postponed |
 | `0005_upload_payment_terms.sql` | Durable default payment days per upload | Applied |
 | `0006_claim_auto_totals.sql` | Optional automatic receipt totals for claims | Applied |
+| `0007_claim_links_and_trash.sql` | Claim-only links and recoverable record deletion | Applied |
 
-The current cloud database records these six versions in `finance.schema_migrations`.
+The current cloud database records these seven versions in `finance.schema_migrations`.

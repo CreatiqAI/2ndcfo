@@ -147,6 +147,10 @@ export async function snapshot(actor: Actor) {
     .select()
     .from(s.invoiceCancellations)
     .where(eq(s.invoiceCancellations.companyId, actor.companyId));
+  const trash = await db
+    .select()
+    .from(s.recordTrash)
+    .where(and(eq(s.recordTrash.companyId, actor.companyId), eq(s.recordTrash.deleted, true)));
   const invoiceRows = invoices.map((x) => {
     const paidMinor = sumMinor(
       allocations.filter((a) => a.invoiceId === x.id).map((b) => b.amountMinor),
@@ -156,6 +160,7 @@ export async function snapshot(actor: Actor) {
     return {
       ...x,
       effectiveDueDate: due.date,
+      deleted: trash.some((t) => t.invoiceId === x.id || (x.claimId && t.claimId === x.claimId)),
       dueDateSource: due.source,
       lifecycle: cancellation ? 'Cancelled' : x.lifecycle,
       cancellationReason: cancellation?.reason || null,
@@ -193,6 +198,7 @@ export async function snapshot(actor: Actor) {
     );
     return {
       ...c,
+      deleted: trash.some((t) => t.claimId === c.id),
       ...summary,
       claimedMinor: summary.effectiveClaimedMinor,
       employeeName: members.find((m) => m.id === c.employeeId)?.name || 'Employee',

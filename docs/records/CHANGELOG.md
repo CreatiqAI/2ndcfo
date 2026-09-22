@@ -1,5 +1,20 @@
 # Project change record
 
+## 22 September 2026 — employee links and Delete
+
+- Added one-time employee claim links with Copy link and Open email draft.
+  Links expire after 7 days; atomic redemption creates a 24-hour claim-only cookie
+  session, which ends on submission. Tokens are hashed, isolated from finance
+  sessions, and never included in audit records.
+- Added a dedicated employee claim page/API for description, multiple receipts,
+  automatic scoped extraction and submission. It exposes only the linked claim.
+- Added Delete with reason/confirmation and Deleted records → Restore for Finance
+  and Admin. Removes active list entries while retaining financial totals, original
+  evidence, allocations and audit history; this does not reverse accounting entries.
+- Applied/verified migration 0007. All 64 tests, typecheck and production build
+  passed, including one-time concurrent redemption, expiry, scoped access,
+  deletion/restore and retained posted totals. No real employee links were sent.
+
 ## 22 September 2026 — claim bundles and employees
 
 - Added automatic receipt-total mode for new claims, preserving existing declared

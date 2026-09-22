@@ -25,3 +25,31 @@ retain their original manual amounts. No receipt files are copied or deleted.
 
 Employees see their own claims; Managers retain department scope; Finance/Admin
 can create claims on behalf of workspace employees. Adding logins is Admin-only.
+
+## One-time employee links
+
+Finance/Admin can use **Claims → Send link to employee**, select an employee,
+month and description, then create a link. This creates a new automatic-total
+claim bundle. Copy the link for WhatsApp/email, or open an email draft; the app
+does not send email. Create links from the deployed app when sharing externally;
+localhost links are only reachable on the same computer.
+
+An unused link expires after 7 days. The employee explicitly clicks Open to
+redeem it once (GET previews do not consume it), then receives a separate 24-hour
+claim-only session. The token is in the URL fragment, removed from the address
+bar on load; only token/session hashes are stored. It cannot create a finance
+login or access another claim. The employee enters a description, uploads receipts,
+and submits the bundle. Extraction runs automatically per upload, with a Calculate
+receipts button for queued work. Failed extraction requires the finance team's
+review/retry in the normal app. Submission expires the claim session, including
+submissions marked Needs Review. Finance uses the existing approval workflow.
+
+## Delete and restore
+
+Finance/Admin can delete invoices in Money In/Out and delete claims inside the
+claim details. A reason and confirmation are required. **Deleted records** offers
+Restore. These are reversible removals from active lists, available for approved,
+paid and draft records. Claim receipts stay with the bundle and original files
+remain retained. Posted totals, allocations and exports preserve accounting history;
+deletion does not cancel invoices or reverse payments. Use the normal cancellation
+or correction workflow when the financial amounts themselves need correction.

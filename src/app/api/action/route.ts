@@ -3,6 +3,8 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { checkOrigin } from '@/server/auth';
 import { addEmployee } from '@/server/employees';
+import { createClaimLink } from '@/server/claim-links';
+import { trashRecord } from '@/server/record-trash';
 import { failure, requestActor, requestUser } from '@/server/http';
 import { assignMember, createWorkspace, rejectSuggestion } from '@/server/workspace';
 import { cancelInvoice, reviewInvoice, splitInvoice } from '@/server/invoices/service';
@@ -26,6 +28,12 @@ export async function POST(request: Request) {
     const actor = await requestActor(companyId);
     let result: unknown;
     switch (action) {
+      case 'claim.link':
+        result = await createClaimLink(actor, input);
+        break;
+      case 'record.trash':
+        result = await trashRecord(actor, input);
+        break;
       case 'employee.create':
         result = await addEmployee(actor, input);
         break;

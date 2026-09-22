@@ -246,6 +246,11 @@ function Modal({
   );
 }
 export function FinanceApp() {
+  const [trashTarget, setTrashTarget] = useState<{
+    id: string;
+    type: 'invoice' | 'claim';
+    name: string;
+  } | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [loading, setLoading] = useState(true),
     [page, setPage] = useState('Dashboard'),
@@ -394,6 +399,7 @@ export function FinanceApp() {
   const moneyRows = state.invoices.filter(
     (i) =>
       !i.claimId &&
+      !i.deleted &&
       matches(i) &&
       (page === 'Transactions'
         ? i.reviewStatus === 'Approved'
@@ -426,6 +432,7 @@ export function FinanceApp() {
             {state.claims
               .filter(
                 (c) =>
+                  !c.deleted &&
                   matches(c) &&
                   (filter === 'All' ||
                     c.status === filter ||
@@ -553,6 +560,20 @@ export function FinanceApp() {
                   {i.reviewStatus === 'Approved' ? 'View' : 'Review'}
                   <ArrowRight size={14} />
                 </button>
+                {canEdit && !i.claimId && (
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      setTrashTarget({
+                        id: i.id,
+                        type: 'invoice',
+                        name: i.number || i.party || 'invoice',
+                      })
+                    }
+                  >
+                    Delete
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -744,6 +765,11 @@ export function FinanceApp() {
                 <button className="button primary" onClick={() => setModal('claim-create')}>
                   <Plus size={17} />
                   New claim
+                </button>
+              )}
+              {canEdit && ['Claims', 'Money In', 'Money Out'].includes(page) && (
+                <button className="button secondary" onClick={() => setModal('trash')}>
+                  Deleted records
                 </button>
               )}
               {page === 'Bank Matching' && canEdit && (
@@ -1175,6 +1201,7 @@ export function FinanceApp() {
                     invoices={state.invoices.filter(
                       (i) =>
                         !i.claimId &&
+                        !i.deleted &&
                         matches(i) &&
                         (filter === 'All' ||
                           (filter === 'Duplicate' && !!i.duplicateOf) ||
@@ -1193,6 +1220,11 @@ export function FinanceApp() {
             <section className="panel">
               <div className="section-heading">
                 <h2>Claim requests</h2>
+                {canEdit && (
+                  <button className="button secondary" onClick={() => setModal('claim-link')}>
+                    Send link to employee
+                  </button>
+                )}
                 {state.actor.role === 'Admin' && (
                   <button className="button primary" onClick={() => setModal('employee-create')}>
                     <Plus size={16} /> Add employee
@@ -1236,6 +1268,7 @@ export function FinanceApp() {
                     {state.claims
                       .filter(
                         (c) =>
+                          !c.deleted &&
                           c.month === month &&
                           matches(c) &&
                           (filter === 'All' || c.paymentStatus === filter),
@@ -1477,6 +1510,67 @@ export function FinanceApp() {
           />
         </Modal>
       )}
+      {trashTarget && (
+        <Modal title={`Delete ${trashTarget.name}`} onClose={() => setTrashTarget(null)}>
+          <p>
+            This removes the record from active lists. Receipts, approvals and bank payments remain
+            in audit history, and posted totals stay unchanged. You can restore it from Deleted
+            records.
+          </p>
+          <SimpleForm
+            busy={busy}
+            submit="Delete record"
+            fields={[{ name: 'reason', label: 'Reason' }]}
+            onSubmit={async ({ reason }) => {
+              await action('record.trash', { ...trashTarget, deleted: true, reason });
+              setTrashTarget(null);
+              close();
+            }}
+          />
+        </Modal>
+      )}
+      {modal === 'trash' && (
+        <Modal title="Deleted records" onClose={close} wide>
+          <p>
+            These records are hidden from active lists. Original evidence and posted financial
+            totals are retained.
+          </p>
+          {[
+            ...state.invoices
+              .filter((i) => i.deleted && !i.claimId)
+              .map((i) => ({ id: i.id, type: 'invoice', name: i.number || i.party || 'Invoice' })),
+            ...state.claims
+              .filter((c) => c.deleted)
+              .map((c) => ({
+                id: c.id,
+                type: 'claim',
+                name: `${c.employeeName} claim — ${c.title}`,
+              })),
+          ].map((record) => (
+            <p key={record.id}>
+              {record.name}{' '}
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() =>
+                  void action('record.trash', {
+                    ...record,
+                    deleted: false,
+                    reason: 'Restored from deleted records',
+                  }).catch(() => {})
+                }
+              >
+                Restore
+              </button>
+            </p>
+          ))}
+        </Modal>
+      )}
+      {modal === 'claim-link' && (
+        <Modal title="Send claim link to employee" onClose={close}>
+          <ClaimLinkForm state={state} month={month} action={action} busy={busy} />
+        </Modal>
+      )}
       {modal === 'employee-create' && (
         <Modal title="Add employee" onClose={close}>
           <p>
@@ -1536,6 +1630,21 @@ export function FinanceApp() {
             upload={() => setModal('upload')}
             review={selectInvoice}
           />
+          {canEdit && (
+            <button
+              className="button secondary"
+              onClick={() => {
+                setModal(null);
+                setTrashTarget({
+                  id: selectedClaim.id,
+                  type: 'claim',
+                  name: `${selectedClaim.employeeName} claim`,
+                });
+              }}
+            >
+              Delete claim
+            </button>
+          )}
         </Modal>
       )}
       {modal === 'statement-upload' && (
@@ -1833,6 +1942,108 @@ function Login({
   );
 }
 type Action = (a: string, input?: Record<string, unknown>, success?: string) => Promise<unknown>;
+
+function ClaimLinkForm({
+  state,
+  month,
+  action,
+  busy,
+}: {
+  state: State;
+  month: string;
+  action: Action;
+  busy: boolean;
+}) {
+  const [link, setLink] = useState(''),
+    [email, setEmail] = useState(''),
+    [copied, setCopied] = useState(false),
+    [error, setError] = useState('');
+  return (
+    <>
+      {!link ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.currentTarget));
+            setError('');
+            void action('claim.link', { ...data, currency: state.company.currency })
+              .then((result) => {
+                const r = result as { token: string };
+                setLink(`${window.location.origin}/claim#token=${r.token}`);
+                setEmail(state.members.find((m) => m.id === data.employeeId)?.email || '');
+              })
+              .catch((e) => setError(e.message));
+          }}
+        >
+          <FormField label="Employee">
+            <select name="employeeId" required>
+              {state.members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} — {m.email}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Claim month">
+            <input name="month" type="month" defaultValue={month} required />
+          </FormField>
+          <FormField label="Claim description">
+            <input name="title" defaultValue="Employee expenses" required minLength={2} />
+          </FormField>
+          <p>
+            Creates one receipt bundle for this employee. The unused link expires after 7 days and
+            can be opened once. After opening, the employee has 24 hours to finish.
+          </p>
+          {error && (
+            <p role="alert" className="form-error">
+              {error}
+            </p>
+          )}
+          <button className="button primary" disabled={busy || !state.members.length}>
+            Create one-time link
+          </button>
+        </form>
+      ) : (
+        <>
+          <p>
+            Send this private link only to the selected employee. They can upload receipts and
+            submit this claim without signing in.
+          </p>
+          <input
+            aria-label="Employee claim link"
+            readOnly
+            value={link}
+            onFocus={(e) => e.target.select()}
+          />
+          {/\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(link) && (
+            <p className="notice">
+              This localhost link only works on this computer. Create employee links from your
+              deployed app when sharing to other devices.
+            </p>
+          )}
+          <button
+            className="button primary"
+            onClick={() => {
+              void navigator.clipboard
+                .writeText(link)
+                .then(() => setCopied(true))
+                .catch(() => setError('Select the link above and copy it manually.'));
+            }}
+          >
+            {copied ? 'Copied' : 'Copy link'}
+          </button>
+          <a
+            className="button secondary"
+            href={`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Your employee claim link')}&body=${encodeURIComponent(`Please fill in your claim and upload receipts using this one-time link (expires in 7 days):\n\n${link}`)}`}
+          >
+            Open email draft
+          </a>
+          {error && <p role="alert">{error}</p>}
+        </>
+      )}
+    </>
+  );
+}
 
 function ApproveAll({ rows, action, busy }: { rows: Invoice[]; action: Action; busy: boolean }) {
   const candidates = rows.filter((i) =>

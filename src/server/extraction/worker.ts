@@ -7,10 +7,10 @@ import { ExtractionFailure, provider } from './provider';
 import { detectDuplicate } from '../duplicates/detector';
 import { categorisationDecision } from '../categorisation/policy';
 import { uploadPaymentTerms } from '../../lib/invoice-due-date';
-export async function processOne(companyId?: string): Promise<boolean> {
+export async function processOne(companyId?: string, claimId?: string): Promise<boolean> {
   const db = await getDb();
   const job = await db.transaction(async (tx) => {
-    const scope = companyId ? sql`AND company_id=${companyId}` : sql``;
+    const scope = sql`${companyId ? sql`AND company_id=${companyId}` : sql``} ${claimId ? sql`AND document_id IN (SELECT id FROM documents WHERE claim_id=${claimId})` : sql``}`;
     await tx.execute(
       sql`UPDATE extraction_jobs SET status='failed', error='Worker lease expired after three attempts. Retry extraction.', lease_until=NULL WHERE status='processing' AND attempts>=3 AND lease_until<now() ${scope}`,
     );

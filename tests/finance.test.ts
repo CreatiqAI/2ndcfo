@@ -12,6 +12,13 @@ import { authenticate, actorFor, checkOrigin, sessionUser } from '../src/server/
 import { type Actor, minor, paymentStatus, sumMinor } from '../src/server/core';
 import { snapshot } from '../src/server/workspace';
 import { addEmployee } from '../src/server/employees';
+import {
+  createClaimLink,
+  redeemClaimLink,
+  claimLinkContext,
+  claimPortalState,
+} from '../src/server/claim-links';
+import { trashRecord } from '../src/server/record-trash';
 import { createClaim, changeClaim } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
@@ -283,6 +290,83 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('redeems a claim link only once and limits its session to one employee claim', async () => {
+    await expect(createClaimLink(employee, {})).rejects.toThrow('role');
+    const link = await createClaimLink(admin, {
+      employeeId: employee.userId,
+      title: 'Portal expenses',
+      month,
+      currency: 'MYR',
+    });
+    const attempts = await Promise.allSettled([
+      redeemClaimLink(link.token),
+      redeemClaimLink(link.token),
+    ]);
+    expect(attempts.filter((a) => a.status === 'fulfilled')).toHaveLength(1);
+    const session = (
+      attempts.find((a) => a.status === 'fulfilled') as PromiseFulfilledResult<string>
+    ).value;
+    const context = await claimLinkContext(session);
+    expect(context.claim.id).toBe(link.claimId);
+    expect(context.actor.userId).toBe(employee.userId);
+    await expect(sessionUser(session)).rejects.toThrow('Session');
+    const own = await draftInvoice(admin, 4500, link.claimId);
+    const state = await claimPortalState(session);
+    expect(state.receipts.map((r) => r.id)).toEqual([own.id]);
+    expect(JSON.stringify(state)).not.toContain('passwordHash');
+    await trashRecord(admin, {
+      id: link.claimId,
+      type: 'claim',
+      deleted: true,
+      reason: 'Test deleted claim',
+    });
+    await expect(claimLinkContext(session)).rejects.toThrow('deleted');
+    await trashRecord(admin, {
+      id: link.claimId,
+      type: 'claim',
+      deleted: false,
+      reason: 'Test restore',
+    });
+    await (
+      await getDb()
+    )
+      .update(s.claimLinks)
+      .set({ sessionExpiresAt: new Date(0) })
+      .where(eq(s.claimLinks.claimId, link.claimId));
+    await expect(claimLinkContext(session)).rejects.toThrow('expired');
+    const expired = await createClaimLink(admin, {
+      employeeId: employee.userId,
+      title: 'Expired link',
+      month,
+      currency: 'MYR',
+    });
+    await (
+      await getDb()
+    )
+      .update(s.claimLinks)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(s.claimLinks.claimId, expired.claimId));
+    await expect(redeemClaimLink(expired.token)).rejects.toThrow('expired');
+  });
+  it('trashes and restores approved records without erasing evidence or posted totals', async () => {
+    const invoice = await approvedInvoice();
+    const before = await snapshot(admin);
+    const input = {
+      id: invoice.id,
+      type: 'invoice',
+      deleted: true,
+      reason: 'Remove from active list',
+    };
+    await expect(trashRecord(employee, input)).rejects.toThrow('role');
+    await expect(trashRecord(other, input)).rejects.toThrow('not found');
+    await trashRecord(admin, input);
+    const after = await snapshot(admin);
+    expect(after.invoices.find((i) => i.id === invoice.id)?.deleted).toBe(true);
+    expect(after.summaries).toEqual(before.summaries);
+    expect(after.documents.some((d) => d.id === invoice.documentId)).toBe(true);
+    await trashRecord(admin, { ...input, deleted: false });
+    expect((await snapshot(admin)).invoices.find((i) => i.id === invoice.id)?.deleted).toBe(false);
+  });
   it('creates employee logins with scoped roles and never changes an existing password', async () => {
     await expect(
       addEmployee(employee, {
