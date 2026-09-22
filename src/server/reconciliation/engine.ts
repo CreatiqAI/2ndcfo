@@ -30,7 +30,7 @@ export type Suggestion = {
   signals: string[];
 };
 // Automatic suggestions stay within the statement's validated calendar month.
-// Manual allocations can still settle invoices from earlier periods.
+// Manual invoice allocations enforce the same statement month/year rule.
 function sameMonth(target: Obligation, bank: Movement) {
   const month = documentMonth(target.date);
   return month !== null && month === documentMonth(bank.date);
@@ -115,11 +115,13 @@ export function suggestMatches(
   targets: Obligation[],
   banks: Movement[],
   history: Map<string, Set<string>> = new Map(),
+  rejected: Set<string> = new Set(),
 ) {
-  return targets
+  const candidates = targets
     .flatMap((t) =>
       banks.flatMap((b) => {
         if (!sameMonth(t, b)) return [];
+        if (rejected.has(`${b.id}:${t.id}`)) return [];
         const historical = [...(history.get(t.party) || [])].some((x) =>
           normal(b.description).includes(x),
         );
@@ -127,8 +129,25 @@ export function suggestMatches(
         return s ? [s] : [];
       }),
     )
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 500);
+    .sort(
+      (a, b) =>
+        b.confidence - a.confidence ||
+        a.bankId.localeCompare(b.bankId) ||
+        a.targetType.localeCompare(b.targetType) ||
+        a.targetId.localeCompare(b.targetId),
+    );
+  const usedBanks = new Set<string>(),
+    usedTargets = new Set<string>();
+  const selected: Suggestion[] = [];
+  for (const candidate of candidates) {
+    const target = `${candidate.targetType}:${candidate.targetId}`;
+    if (usedBanks.has(candidate.bankId) || usedTargets.has(target)) continue;
+    selected.push(candidate);
+    usedBanks.add(candidate.bankId);
+    usedTargets.add(target);
+    if (selected.length === 500) break;
+  }
+  return selected;
 }
 export type SuggestionGroup = {
   id: string;

@@ -1,5 +1,11 @@
 # Monthly bank matching
 
+The main suggested-match list selects the highest-confidence available pairings,
+with each bank transaction and invoice/claim appearing at most once. Rejected pairs
+are excluded before alternatives are selected; ties use stable IDs for consistent
+display. These remain suggestions requiring human confirmation. Manual matching
+and explicit split/combine workflows remain available for other arrangements.
+
 ## Statement history and repeat review
 
 Open **Bank Matching → Bank statement history**. The history includes all months,

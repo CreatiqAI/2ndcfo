@@ -31,6 +31,49 @@ const payment: Movement = {
 };
 
 describe('Statement month matching', () => {
+  it('keeps distinct strongest pairs when the same customer has two equal invoices', () => {
+    const early = {
+      ...invoice,
+      id: 'early',
+      party: 'Daily Holidays Sdn Bhd',
+      number: '2026000028',
+      date: '2026-08-04',
+      outstanding: 68800,
+    };
+    const late = { ...early, id: 'late', number: '2026000029', date: '2026-08-28' };
+    const first = {
+      ...payment,
+      id: 'first',
+      date: '2026-08-09',
+      description: 'Daily Holidays Sdn Bhd INV2026000028',
+      remaining: 68800,
+    };
+    const second = {
+      ...first,
+      id: 'second',
+      date: '2026-08-29',
+      description: 'Daily Holidays Sdn Bhd',
+    };
+    const result = suggestMatches([early, late], [first, second]);
+    expect(result.map((s) => [s.bankId, s.targetId])).toEqual([
+      ['first', 'early'],
+      ['second', 'late'],
+    ]);
+    expect(suggestMatches([late, early], [second, first])).toEqual(result);
+    expect(new Set(result.map((s) => s.bankId)).size).toBe(result.length);
+    expect(new Set(result.map((s) => s.targetId)).size).toBe(result.length);
+  });
+  it('excludes rejected pairs before selecting an alternative and removes repeated input pairs', () => {
+    const other = { ...invoice, id: 'other', number: 'INV-456' };
+    const result = suggestMatches(
+      [invoice, invoice, other],
+      [payment, payment],
+      new Map(),
+      new Set(['payment:invoice']),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].targetId).toBe('other');
+  });
   it('suggests approved obligations from the same calendar month, even 29 days apart', () => {
     expect(suggestMatches([invoice], [payment])).toHaveLength(1);
     expect(suggestMatches([{ ...invoice, type: 'claim' }], [payment])).toHaveLength(1);

@@ -300,9 +300,7 @@ export async function snapshot(actor: Actor) {
         .where(eq(s.reconciliationDecisions.companyId, actor.companyId))
     : [];
   const rejected = new Set(decisions.map((a) => `${a.bankId}:${a.targetId}`));
-  const suggestions = suggestMatches(obligations, bankRows, history).filter(
-    (x) => !rejected.has(`${x.bankId}:${x.targetId}`),
-  );
+  const suggestions = suggestMatches(obligations, bankRows, history, rejected);
   const groups = suggestGroups(obligations, bankRows).filter((g) =>
     g.items.every((i) => !rejected.has(`${i.bankId}:${i.targetId}`)),
   );

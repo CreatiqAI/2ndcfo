@@ -1,5 +1,14 @@
 # Project change record
 
+## 23 September 2026 — remove conflicting match suggestions
+
+- Main suggestions now select highest-confidence pairs without reusing a bank row
+  or invoice/claim. Rejection filtering precedes selection so alternatives remain
+  available; deterministic tie ordering prevents changes due to query order.
+- Added the two-equal-Daily-Holidays-invoices regression scenario and checks for
+  rejected alternatives and repeated candidate inputs. No allocations or evidence
+  were changed; manual and split/combine matching remain available.
+
 ## 23 September 2026 — upload and match salary payslips
 
 - Added Money Out → Upload payslip and a Payslip document type. AI extracts net
