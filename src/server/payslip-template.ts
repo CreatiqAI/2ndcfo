@@ -1,13 +1,13 @@
 import sharp from 'sharp';
 import { eq } from 'drizzle-orm';
-import { payslipTemplateSchema } from '../lib/payslip-template';
+import { workspacePayslipTemplate } from '../lib/payslip-template';
 import { type Actor, requireRole, assert, audit, lockCompany } from './core';
 import { getDb } from './db';
 import { companies } from './db/schema';
 import { salaryPdf, type SalaryDetails } from './salary-pdf';
 
 export async function preparePayslipTemplate(input: unknown) {
-  const template = payslipTemplateSchema.parse(input);
+  const template = workspacePayslipTemplate(input);
   if (template.logo) {
     assert(
       /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(template.logo),

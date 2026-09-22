@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   defaultPayslipTemplate,
   payslipTemplateSchema,
+  workspacePayslipTemplate,
   type PayslipTemplate,
 } from '@/lib/payslip-template';
 import { PdfPreview } from './pdf-preview';
@@ -17,7 +18,7 @@ export function PayslipTemplateSettings({
   initial: unknown;
   onSave: (data: Record<string, unknown>) => Promise<unknown>;
 }) {
-  const [template, setTemplate] = useState(() => payslipTemplateSchema.parse(initial || {}));
+  const [template, setTemplate] = useState(() => workspacePayslipTemplate(initial));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<Uint8Array | null>(null);

@@ -14,6 +14,8 @@ export type SalaryDetails = {
   companyContact: string;
   signatory: string;
   designation: string;
+  bankName?: string;
+  bankAccount?: string;
   month: string;
   earnings: { label: string; amount: number }[];
   deductionLabel: string;
@@ -24,7 +26,7 @@ export type SalaryDetails = {
 export async function salaryPdf(details: SalaryDetails): Promise<Uint8Array> {
   const template = payslipTemplateSchema.parse(details.template || {});
   const pdf = await PDFDocument.create(),
-    page = pdf.addPage([595.28, 841.89]);
+    page = pdf.addPage(template.layout === 'dark' ? [841.89, 595.28] : [595.28, 841.89]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica),
     bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   pdf.registerFontkit(fontkit);
@@ -56,8 +58,6 @@ export async function salaryPdf(details: SalaryDetails): Promise<Uint8Array> {
     paper = legacy ? rgb(0.956, 0.956, 0.969) : colour(template.background),
     accent = legacy ? ink : colour(template.accent),
     accentText = legacy ? paper : light(template.accent) ? rgb(0, 0, 0) : rgb(1, 1, 1);
-  page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 841.89, color: paper });
-  page.drawRectangle({ x: 24, y: 685, width: 24, height: 157, color: accent });
   function text(
     value: string,
     x: number,
@@ -74,6 +74,134 @@ export async function salaryPdf(details: SalaryDetails): Promise<Uint8Array> {
       throw new Error('Text exceeds the available template width.');
     page.drawText(value, { x, y, size: s, font, color });
   }
+  if (template.layout === 'dark') {
+    const panel = accent;
+    const panelText = accentText;
+    page.drawRectangle({ x: 0, y: 0, width: 842, height: 596, color: paper });
+    // Two broad panels reproduce the reference's landscape hierarchy.
+    page.drawRectangle({ x: 24, y: 388, width: 794, height: 181, color: panel });
+    page.drawRectangle({ x: 24, y: 25, width: 794, height: 344, color: panel });
+    if (template.logo) {
+      const logo = await pdf.embedPng(Buffer.from(template.logo.split(',')[1], 'base64'));
+      const scaled = logo.scaleToFit(template.logoSize, template.logoSize);
+      page.drawImage(logo, { x: 58, y: 491, ...scaled });
+    } else {
+      for (let i = 0; i < 3; i++) {
+        page.drawLine({
+          start: { x: 57 + i * 15, y: 504 },
+          end: { x: 71 + i * 15, y: 529 },
+          thickness: 5,
+          color: panelText,
+        });
+        page.drawLine({
+          start: { x: 71 + i * 15, y: 529 },
+          end: { x: 85 + i * 15, y: 504 },
+          thickness: 5,
+          color: panelText,
+        });
+      }
+    }
+    text(details.companyName, 136, 533, 16, true, 280, panelText);
+    text(details.companyAddress, 136, 513, 10, false, 280, panelText);
+    text(details.companyContact, 136, 496, 10, false, 280, panelText);
+    text(details.month, 679, 533, 14, true, 100, panelText);
+    text(template.title.toUpperCase(), 455, 466, 46, true, 325, panelText);
+    page.drawLine({
+      start: { x: 58, y: 477 },
+      end: { x: 413, y: 477 },
+      thickness: 0.5,
+      color: panelText,
+    });
+    text(details.employeeName, 58, 452, 16, true, 355, panelText);
+    text(details.employeeAddress, 58, 432, 10, false, 355, panelText);
+    text(details.employeeContact, 58, 415, 10, false, 355, panelText);
+
+    const amount = (value: number) => `RM ${decimal(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    function table(
+      x: number,
+      title: string,
+      rows: { label: string; amount: number }[],
+      totalLabel: string,
+      total: number,
+    ) {
+      const width = 333,
+        split = x + 220,
+        top = 340,
+        bottom = 161;
+      page.drawRectangle({
+        x,
+        y: bottom,
+        width,
+        height: top - bottom,
+        borderWidth: 0.6,
+        borderColor: panelText,
+      });
+      page.drawRectangle({ x, y: top - 27, width, height: 27, color: rgb(0.95, 0.95, 0.95) });
+      text(title, x + 15, top - 18, 11, true, 193, rgb(0.1, 0.1, 0.1));
+      text('AMOUNT', split + 12, top - 18, 11, true, 91, rgb(0.1, 0.1, 0.1));
+      page.drawLine({
+        start: { x: split, y: bottom },
+        end: { x: split, y: top },
+        thickness: 0.5,
+        color: panelText,
+      });
+      rows.forEach((row, i) => {
+        text(row.label, x + 15, top - 48 - i * 24, 11, false, 193, panelText);
+        text(amount(row.amount), split + 12, top - 48 - i * 24, 11, false, 91, panelText);
+      });
+      page.drawLine({
+        start: { x, y: bottom + 28 },
+        end: { x: x + width, y: bottom + 28 },
+        thickness: 0.5,
+        color: panelText,
+      });
+      text(totalLabel, x + 15, bottom + 10, 10, true, 193, panelText);
+      text(amount(total), split + 12, bottom + 10, 11, true, 91, panelText);
+    }
+    table(58, 'EARNINGS', details.earnings, 'GROSS EARNINGS', details.grossMinor);
+    table(
+      447,
+      'DEDUCTIONS',
+      [{ label: details.deductionLabel || 'Deductions', amount: details.deductionMinor }],
+      'TOTAL DEDUCTIONS',
+      details.deductionMinor,
+    );
+    text('Net salary', 58, 127, 12, false, 170, panelText);
+    text(amount(details.netMinor), 58, 94, 28, true, 200, panelText);
+    page.drawRectangle({ x: 278, y: 83, width: 502, height: 59, color: paper });
+    text(details.bankName || details.companyName, 296, 118, 12, true, 465, ink);
+    text(
+      details.bankAccount ? `Account: ${details.bankAccount}` : `Pay period: ${details.month}`,
+      296,
+      99,
+      11,
+      false,
+      465,
+      ink,
+    );
+    if (template.showSignature) {
+      text(
+        `${details.signatory || 'Authorised signatory'}${details.designation ? ` | ${details.designation}` : ''}`,
+        58,
+        51,
+        10,
+        false,
+        420,
+        panelText,
+      );
+      page.drawLine({
+        start: { x: 58, y: 68 },
+        end: { x: 250, y: 68 },
+        thickness: 0.5,
+        color: panelText,
+      });
+    }
+    text(template.footer, 500, 51, 10, false, 280, panelText);
+    pdf.setTitle(`Salary Slip - ${details.employeeName} - ${details.month}`);
+    return pdf.save();
+  }
+  page.drawRectangle({ x: 0, y: 0, width: 595.28, height: 841.89, color: paper });
+  page.drawRectangle({ x: 24, y: 685, width: 24, height: 157, color: accent });
   // Radial mark and geometric title follow the supplied monochrome reference.
   if (template.logo) {
     const logo = await pdf.embedPng(Buffer.from(template.logo.split(',')[1], 'base64'));

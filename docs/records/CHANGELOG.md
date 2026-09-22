@@ -1,5 +1,16 @@
 # Project change record
 
+## 23 September 2026 — dark landscape payslip
+
+- Replaced the default for future salary statements with the new reference layout:
+  charcoal panels, uppercase heading, side-by-side earnings/deductions tables and
+  prominent net pay. Added optional bank name/account fields to salary generation.
+- Versioned template JSON keeps previously issued statements on their original
+  portrait renderer. Existing workspace logos/text are preserved; unversioned
+  workspace defaults adopt the dark palette. No schema migration is required.
+- All 70 tests and production build passed, including new landscape and legacy
+  portrait dimensions. Rendered and visually inspected the logo/bank-panel sample.
+
 ## 23 September 2026 — payslip template popup
 
 - Replaced the expanded Settings editor with a Payslips card and Payslip template

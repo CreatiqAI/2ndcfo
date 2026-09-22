@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const payslipTemplateSchema = z.object({
+  layout: z.enum(['classic', 'dark']).default('classic'),
   title: z.string().trim().min(1).max(24).default('Salary Slip'),
   accent: z
     .string()
@@ -16,4 +17,13 @@ export const payslipTemplateSchema = z.object({
   showSignature: z.boolean().default(true),
 });
 export type PayslipTemplate = z.infer<typeof payslipTemplateSchema>;
-export const defaultPayslipTemplate = payslipTemplateSchema.parse({});
+export const defaultPayslipTemplate = payslipTemplateSchema.parse({
+  layout: 'dark',
+  background: '#232323',
+});
+// Upgrade workspace defaults without changing template snapshots on issued slips.
+export function workspacePayslipTemplate(value: unknown): PayslipTemplate {
+  const parsed = payslipTemplateSchema.parse(value || {});
+  if (value && typeof value === 'object' && 'layout' in value) return parsed;
+  return { ...parsed, layout: 'dark', accent: '#454545', background: '#232323' };
+}

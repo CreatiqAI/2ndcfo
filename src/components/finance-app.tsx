@@ -2309,6 +2309,8 @@ function SalaryForm({
           companyContact: 'Company contact',
           signatory: 'Authorised signatory name',
           designation: 'Signatory title',
+          bankName: 'Bank name (optional)',
+          bankAccount: 'Bank account (optional)',
         }).map(([key, label]) => (
           <FormField key={key} label={label}>
             <input name={key} maxLength={100} />

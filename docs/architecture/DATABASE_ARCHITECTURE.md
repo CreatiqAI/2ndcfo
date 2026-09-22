@@ -7,6 +7,9 @@ uniqueness. `companies.payslip_template` holds the current appearance settings a
 a bounded, normalised PNG logo; each new salary's `details` snapshots them. Updating
 the workspace template cannot rewrite issued payroll evidence. Migration 0010 is
 additive and defaults to an empty object interpreted as the standard template.
+Template snapshots now include a layout version. Unversioned issued snapshots use
+the classic renderer; workspace defaults upgrade to the dark landscape layout.
+Optional bank details live in immutable salary details and do not create payments.
 
 ```mermaid
 erDiagram

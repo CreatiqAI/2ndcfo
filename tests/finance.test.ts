@@ -345,7 +345,11 @@ describe('Identity, approval and tenant isolation', () => {
     const saved = (await getSalary(admin, created.id)).details as SalaryDetails;
     expect(saved.template?.title).toBe('Monthly Payslip');
     expect(saved.template?.logo).toBe(template.logo);
-    expect((await PDFDocument.load(await salaryPdf(saved))).getPageCount()).toBe(1);
+    const newPdf = await PDFDocument.load(await salaryPdf(saved));
+    expect(newPdf.getPageCount()).toBe(1);
+    expect(newPdf.getPage(0).getWidth()).toBeGreaterThan(newPdf.getPage(0).getHeight());
+    const oldPdf = await PDFDocument.load(await salaryPdf(templateSample(undefined)));
+    expect(oldPdf.getPage(0).getHeight()).toBeGreaterThan(oldPdf.getPage(0).getWidth());
     expect(
       (await PDFDocument.load(await salaryPdf(templateSample(undefined)))).getPageCount(),
     ).toBe(1);

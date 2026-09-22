@@ -7,13 +7,19 @@ opens a popup with the editor and PDF preview. Close it with the X or Escape;
 save before closing to keep edits. Set the heading, accent
 and page colours, footer message, logo size and signature-line visibility. Upload
 a PNG/JPEG company logo up to 1 MB (maximum 16 megapixels), or remove it to restore
-the radial mark. Logos are resized to at most 256×256 pixels, with proportions
+the default geometric mark. Logos are resized to at most 256×256 pixels, with proportions
 preserved, and saved as PNG data with the workspace template.
 
 Use **Preview PDF** to see sample figures in the actual PDF renderer without
 creating a salary record. **Save template** applies the design to future payslips.
 **Reset to default** resets the form; save to apply the reset. Blank footer text
-hides the coloured footer block. Text contrast adjusts to the chosen colours.
+hides the footer message. Text contrast adjusts to the chosen colours.
+
+The current default is an A4 landscape design with charcoal panels, an uppercase
+heading, separate earnings/deductions tables and a net-salary/bank panel. Workspace
+settings without a layout version adopt the new dark palette while keeping their
+logo and text. Saving records the explicit layout version. Old salary snapshots
+without this version continue using their original portrait renderer.
 
 Each new salary record snapshots the template and logo. Changing settings does
 not restyle previously saved payslips; pre-template records retain their original
@@ -28,8 +34,9 @@ the existing employee management controls first, then select **Generate payslip*
 2. Enter basic salary, attendance, transportation and meal allowances, and bonus.
    All amounts are MYR. Enter verified deductions and an optional description.
 3. Add employee/company contact details and the authorised signatory's name/title
-   if required. Review the calculated gross earnings and net pay before saving.
-4. Select **Download PDF** on the saved row. The A4 monochrome template follows
+   if required. Optional bank name/account fields populate the lower panel; these
+   are printed information and do not initiate transfers. Review totals before saving.
+4. Select **Download PDF** on the saved row. The A4 landscape template follows
    the supplied reference, with an earnings table, totals and a signature line.
 
 Gross earnings is the sum of the five earning fields; net pay subtracts deductions.

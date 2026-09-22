@@ -13,7 +13,7 @@ import {
   sumMinor,
 } from './core';
 import { salaryPdf, type SalaryDetails } from './salary-pdf';
-import { payslipTemplateSchema } from '../lib/payslip-template';
+import { workspacePayslipTemplate } from '../lib/payslip-template';
 const line = z.string().trim().max(100).default('');
 export const earningLabels = [
   'Basic Salary',
@@ -53,6 +53,8 @@ export async function createSalary(actor: Actor, input: unknown) {
       companyContact: line,
       signatory: line,
       designation: line,
+      bankName: line,
+      bankAccount: line,
     })
     .parse(input);
   const amounts = salaryAmounts(
@@ -72,7 +74,7 @@ export async function createSalary(actor: Actor, input: unknown) {
     assert(employee, 'Select an employee in this workspace.');
     const [company] = await tx.select().from(companies).where(eq(companies.id, actor.companyId));
     const details: SalaryDetails = {
-      template: payslipTemplateSchema.parse(company.payslipTemplate),
+      template: workspacePayslipTemplate(company.payslipTemplate),
       employeeName: employee.name,
       companyName: company.name,
       ...data,
