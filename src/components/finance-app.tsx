@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import type { snapshot } from '@/server/workspace';
 import { PdfPreview } from './pdf-preview';
+import { DocumentCalendar } from './document-calendar';
 type Json<T> = T extends Date
   ? string
   : T extends Array<infer U>
@@ -1082,8 +1083,9 @@ export function FinanceApp() {
                   </table>
                 </div>
               ) : (
-                invoiceTable(
-                  state.invoices.filter(
+                <DocumentCalendar
+                  key={companyId}
+                  invoices={state.invoices.filter(
                     (i) =>
                       matches(i) &&
                       (filter === 'All' ||
@@ -1091,9 +1093,9 @@ export function FinanceApp() {
                         (filter === 'Needs Review' &&
                           ['Ready', 'Needs Review'].includes(i.reviewStatus)) ||
                         i.reviewStatus === filter),
-                  ),
-                  true,
-                )
+                  )}
+                  renderTable={(rows) => invoiceTable(rows, true)}
+                />
               )}
             </section>
           )}

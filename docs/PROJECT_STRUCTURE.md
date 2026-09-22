@@ -7,7 +7,8 @@ so Next.js, npm, TypeScript and Vercel discover it normally.
 2ndCFO/
   src/
     app/                  Next.js pages, styles and authenticated API routes
-    components/           Finance interface and document preview
+    components/           Finance interface, document calendar and document preview
+    lib/                  Shared pure UI/data helpers, including invoice month grouping
     server/               Finance services, authentication and integrations
       db/                 Drizzle schema and database adapter
   database/
