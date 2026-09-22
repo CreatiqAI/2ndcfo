@@ -282,6 +282,28 @@ describe('Exact financial arithmetic and parser safety', () => {
   });
 });
 describe('Identity, approval and tenant isolation', () => {
+  it('uses payment terms for overdue status and totals without overwriting the approved due date', async () => {
+    const i = await draftInvoice(admin, 176400);
+    const db = await getDb();
+    await db
+      .update(s.invoices)
+      .set({ invoiceDate: '2026-07-28', dueDate: null, paymentTerms: '14 days' })
+      .where(eq(s.invoices.id, i.id));
+    await reviewInvoice(admin, { id: i.id, version: i.version, action: 'approve' });
+    const state = await snapshot(admin);
+    const row = state.invoices.find((x) => x.id === i.id)!;
+    expect(row.dueDate).toBeNull();
+    expect(row.effectiveDueDate).toBe('2026-08-11');
+    expect(row.dueDateSource).toBe('terms');
+    expect(row.isOverdue).toBe(true);
+    expect(row.paymentStatus).toBe('Overdue');
+    expect(
+      state.summaries.find((x) => x.kind === 'Supplier Invoice')!.overdue,
+    ).toBeGreaterThanOrEqual(176400);
+    expect(
+      (await db.select().from(s.invoices).where(eq(s.invoices.id, i.id)))[0].dueDate,
+    ).toBeNull();
+  });
   it('explains overdue balances, including partial payments, and clears them on settlement', async () => {
     const invoice = await approvedInvoice(admin, 116400);
     const before = (await snapshot(admin)).invoices.find((i) => i.id === invoice.id)!;

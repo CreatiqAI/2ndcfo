@@ -466,8 +466,14 @@ export function FinanceApp() {
                   )}
                   {i.isOverdue && (
                     <span className="invoice-review-reason">
-                      Due {dateLabel(i.dueDate)} · {money(i.outstandingMinor, i.currency!)} still
-                      awaiting payment matching.
+                      Due {dateLabel(i.effectiveDueDate)} · {money(i.outstandingMinor, i.currency!)}{' '}
+                      still awaiting payment matching.
+                    </span>
+                  )}
+                  {i.dueDateSource === 'terms' && (
+                    <span className="invoice-review-reason">
+                      Due {dateLabel(i.effectiveDueDate)} calculated from invoice date +{' '}
+                      {i.paymentTerms}.
                     </span>
                   )}
                 </div>

@@ -1,5 +1,18 @@
 # Project change record
 
+## 22 September 2026 — payment terms due-date fallback
+
+- Calculate an effective due date from clear calendar-day payment terms when the
+  original due date is blank. Explicit due dates take priority; ambiguous terms
+  remain unresolved. Source fields and approved evidence are preserved.
+- Use the effective date consistently for payment status, overdue filter and
+  overdue totals. Show the calculated date and its source in invoice rows.
+- Added date parsing, leap/year boundary and service-level overdue regressions.
+  Existing records benefit immediately; no database migration is required.
+- Verified against M-Plan's active database record using a read-only query:
+  effective due date 11 August 2026, outstanding RM1,764. All 59 tests,
+  typecheck and production build passed.
+
 ## 22 September 2026 — approve all and overdue explanations
 
 - Money In/Out now offer bulk approval of the current filtered list for Finance

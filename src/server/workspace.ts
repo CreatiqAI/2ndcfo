@@ -18,6 +18,7 @@ import { claimSummary } from './claims/service';
 import { suggestGroups, suggestMatches, type Obligation } from './reconciliation/engine';
 import { validateStatement } from './banking/parser';
 import { bankDraftSchema } from './extraction/provider';
+import { invoiceDueDate } from '../lib/invoice-due-date';
 export async function workspaceList(userId: string) {
   return (await getDb())
     .select({
@@ -151,8 +152,11 @@ export async function snapshot(actor: Actor) {
       allocations.filter((a) => a.invoiceId === x.id).map((b) => b.amountMinor),
     );
     const cancellation = cancellations.find((c) => c.invoiceId === x.id);
+    const due = invoiceDueDate(x);
     return {
       ...x,
+      effectiveDueDate: due.date,
+      dueDateSource: due.source,
       lifecycle: cancellation ? 'Cancelled' : x.lifecycle,
       cancellationReason: cancellation?.reason || null,
       documentName: docs.find((d) => d.id === x.documentId)?.name || '',
@@ -162,12 +166,12 @@ export async function snapshot(actor: Actor) {
         !cancellation &&
         x.reviewStatus === 'Approved' &&
         (x.totalMinor || 0) > paidMinor &&
-        !!x.dueDate &&
-        x.dueDate < new Date().toISOString().slice(0, 10),
+        !!due.date &&
+        due.date < new Date().toISOString().slice(0, 10),
       paymentStatus: cancellation
         ? 'Cancelled'
         : x.reviewStatus === 'Approved'
-          ? paymentStatus(x.totalMinor || 0, paidMinor, x.dueDate)
+          ? paymentStatus(x.totalMinor || 0, paidMinor, due.date)
           : x.reviewStatus === 'Rejected'
             ? 'Rejected'
             : 'Draft',
