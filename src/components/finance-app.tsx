@@ -83,6 +83,7 @@ type UploadEntry = {
   batchId: string;
   paymentDays: string;
   payslip?: boolean;
+  uploadDirection?: 'in' | 'out';
   uploadCurrency: string;
   status: 'queued' | 'uploading' | 'uploaded' | 'failed';
   error?: string;
@@ -395,6 +396,7 @@ export function FinanceApp() {
       form.set('batchId', entry.batchId);
       form.set('uploadCurrency', entry.uploadCurrency);
       if (entry.payslip) form.set('purpose', 'payslip');
+      if (entry.uploadDirection) form.set('uploadDirection', entry.uploadDirection);
       if (entry.claimId) form.set('claimId', entry.claimId);
       else if (entry.paymentDays !== '') form.set('defaultPaymentTermDays', entry.paymentDays);
       try {
@@ -441,6 +443,13 @@ export function FinanceApp() {
       paymentDays,
       uploadCurrency,
       payslip: modal === 'upload-payslip',
+      uploadDirection: claimId
+        ? undefined
+        : page === 'Money Out'
+          ? 'out'
+          : page === 'Money In'
+            ? 'in'
+            : undefined,
       batchId,
       status: 'queued',
     }));
@@ -1645,7 +1654,12 @@ export function FinanceApp() {
                           </td>
                           <td>{c.employeeName}</td>
                           <td className="amount">{money(c.claimedMinor, c.currency)}</td>
-                          <td className="amount">{money(c.receiptTotal, c.currency)}</td>
+                          <td className="amount">
+                            {money(c.receiptTotal, c.currency)}
+                            {c.fxMissing > 0 && (
+                              <small>Incomplete · {c.fxMissing} conversion(s) unavailable</small>
+                            )}
+                          </td>
                           <td className={c.difference ? 'error-text' : 'muted'}>
                             {money(c.difference, c.currency)}
                           </td>
@@ -3398,6 +3412,9 @@ function ClaimDetail({
               ? 'Claim total does not match supporting receipts. Possible missing receipt. '
               : ''}
             {c.unknown > 0 ? `${c.unknown} receipt(s) have missing or inconsistent fields. ` : ''}
+            {c.fxMissing > 0
+              ? `${c.fxMissing} foreign receipt(s) could not be converted; total is incomplete. Check receipt dates and currencies. `
+              : ''}
             {c.duplicates > 0 ? `${c.duplicates} possible duplicate(s) need review.` : ''}
           </span>
         </div>
@@ -3439,7 +3456,18 @@ function ClaimDetail({
                     <b>{i.party || 'Unknown merchant'}</b>
                     <small>{i.number || i.documentName}</small>
                   </td>
-                  <td>{money(i.totalMinor, i.currency || c.currency)}</td>
+                  <td>
+                    {money(i.totalMinor, i.currency || c.currency)}
+                    {c.receiptConversions
+                      .filter((r) => r.id === i.id && r.originalCurrency !== c.currency)
+                      .map((r) => (
+                        <small key={r.id}>
+                          {r.amountMinor === null
+                            ? 'Conversion unavailable'
+                            : `${money(r.amountMinor, c.currency)} · ${r.source} · ${r.rateDate}`}
+                        </small>
+                      ))}
+                  </td>
                   <td>{i.category || 'Unknown'}</td>
                   <td>
                     <Badge>{i.duplicateOf ? 'Duplicate' : i.reviewStatus}</Badge>

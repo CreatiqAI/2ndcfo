@@ -22,6 +22,7 @@ export async function uploadDocument(
     defaultPaymentTermDays?: number;
     uploadCurrency?: string;
     payslip?: boolean;
+    uploadDirection?: string;
   },
 ) {
   if (!input.claimId) requireRole(actor, ['Admin', 'Finance']);
@@ -31,6 +32,11 @@ export async function uploadDocument(
   );
   const batchId = z.uuid().parse(input.batchId || randomUUID());
   const uploadCurrency = z.enum(currencies).parse(input.uploadCurrency || 'MYR');
+  const uploadDirection = input.claimId
+    ? undefined
+    : input.payslip
+      ? 'out'
+      : z.enum(['in', 'out']).optional().parse(input.uploadDirection);
   const defaultPaymentTermDays = z
     .number()
     .int()
@@ -100,6 +106,7 @@ export async function uploadDocument(
         purpose: input.claimId ? 'claim' : input.payslip ? 'payslip' : 'invoice',
         defaultPaymentTermDays: input.payslip ? null : defaultPaymentTermDays,
         uploadCurrency,
+        uploadDirection,
       })
       .returning();
     await tx.insert(jobs).values({ companyId: actor.companyId, documentId: doc.id });
@@ -109,6 +116,7 @@ export async function uploadDocument(
       batchId,
       defaultPaymentTermDays,
       uploadCurrency,
+      uploadDirection,
     });
     return { id: doc.id, name: doc.name };
   });

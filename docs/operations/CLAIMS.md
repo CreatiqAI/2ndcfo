@@ -18,8 +18,12 @@
    Money Out totals once and can be matched to bank payments as a bundle. Receipt
    invoices are excluded from standalone Money Out rows and totals.
 
-Automatic totals count non-rejected receipts in the claim currency. Missing,
-mixed-currency, duplicate or inconsistent receipts still require review. Submission
+Automatic totals count non-rejected receipts converted into the claim currency.
+Foreign receipts use cached receipt-date reference rates, with a single rounding
+to cents; original amounts and currencies remain intact. Claim details show each
+converted value and rate source/date. Unavailable rates mark the total incomplete
+and block approval. Conversion evidence is saved with claim action audits.
+Missing fields, duplicate or inconsistent receipts still require review. Submission
 and approval wait for extraction. Automatic totals are frozen when approved;
 manual adjustments switch the claim to declared-amount mode. Existing claims
 retain their original manual amounts. No receipt files are copied or deleted.

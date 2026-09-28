@@ -93,6 +93,12 @@ export default function ClaimPortal() {
               />
             </label>
             <h3>Total receipts: {format(state.total)}</h3>
+            {state.fxMissing > 0 && (
+              <p role="status">
+                Total incomplete: {state.fxMissing} receipt conversion(s) unavailable. Ask finance
+                to check the receipt dates and currencies.
+              </p>
+            )}
             <ul>
               {state.files.map((f) => (
                 <li key={f.id}>

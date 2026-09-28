@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { getDb } from '../db';
+import { getDb, type DB } from '../db';
 import { claims, documents, invoices, jobs, memberships } from '../db/schema';
 import {
   type Actor,
@@ -13,14 +13,57 @@ import {
   requireRole,
   sumMinor,
 } from '../core';
-export function claimSummary(
+import { myrRate } from '../fx';
+import { convertMinorCross } from '../../lib/currency';
+export async function claimSummary(
   claim: typeof claims.$inferSelect,
   receipts: (typeof invoices.$inferSelect)[],
+  executor?: Pick<DB, 'select' | 'insert'>,
 ) {
   const active = receipts.filter((x) => x.reviewStatus !== 'Rejected');
-  const total = sumMinor(
-    active.filter((x) => x.currency === claim.currency).map((x) => x.totalMinor || 0),
+  const receiptConversions = await Promise.all(
+    active.map(async (receipt) => {
+      const currency = receipt.currency || 'MYR';
+      if (currency === claim.currency)
+        return {
+          id: receipt.id,
+          originalCurrency: currency,
+          amountMinor: receipt.totalMinor,
+          sourceRate: '1',
+          targetRate: '1',
+          rateDate: receipt.invoiceDate,
+          source: 'Same currency',
+        };
+      const [source, target] = await Promise.all([
+        currency === 'MYR' ? null : myrRate(currency, receipt.invoiceDate, executor),
+        claim.currency === 'MYR' ? null : myrRate(claim.currency, receipt.invoiceDate, executor),
+      ]);
+      const sourceRate = currency === 'MYR' ? '1' : source?.rate;
+      const targetRate = claim.currency === 'MYR' ? '1' : target?.rate;
+      let amountMinor: number | null = null;
+      if (sourceRate && targetRate && receipt.totalMinor !== null) {
+        try {
+          amountMinor = convertMinorCross(receipt.totalMinor, sourceRate, targetRate);
+        } catch {
+          /* Flag unavailable; never silently assume parity. */
+        }
+      }
+      return {
+        id: receipt.id,
+        originalCurrency: currency,
+        amountMinor,
+        sourceRate: sourceRate || null,
+        targetRate: targetRate || null,
+        rateDate: source?.rateDate || target?.rateDate || null,
+        source: source?.source || target?.source || null,
+      };
+    }),
   );
+  const converted = new Map(receiptConversions.map((r) => [r.id, r.amountMinor]));
+  const fxMissing = receiptConversions.filter(
+    (r) => r.originalCurrency !== claim.currency && r.amountMinor === null,
+  ).length;
+  const total = sumMinor(active.map((x) => converted.get(x.id) || 0));
   const effectiveClaimedMinor =
     claim.autoTotal && ['Draft', 'Needs Review'].includes(claim.status)
       ? total
@@ -32,20 +75,22 @@ export function claimSummary(
       !x.party ||
       !x.invoiceDate ||
       !x.category ||
-      x.currency !== claim.currency ||
+      converted.get(x.id) === null ||
       (x.subtotalMinor !== null &&
         x.taxMinor !== null &&
         BigInt(x.subtotalMinor) + BigInt(x.taxMinor) !== BigInt(x.totalMinor || 0)),
   ).length;
   const duplicates = active.filter((x) => x.duplicateOf).length;
   const categories: Record<string, number> = {};
-  for (const r of active.filter((x) => x.currency === claim.currency))
+  for (const r of active)
     categories[r.category || 'Unknown'] = sumMinor([
       categories[r.category || 'Unknown'] || 0,
-      r.totalMinor || 0,
+      converted.get(r.id) || 0,
     ]);
   return {
     receiptTotal: total,
+    receiptConversions,
+    fxMissing,
     effectiveClaimedMinor,
     difference,
     unknown,
@@ -124,7 +169,7 @@ export async function changeClaim(actor: Actor, input: unknown) {
       .from(jobs)
       .innerJoin(documents, eq(documents.id, jobs.documentId))
       .where(eq(documents.claimId, claim.id));
-    const summary = claimSummary(claim, receipts);
+    const summary = await claimSummary(claim, receipts, tx);
     const update: Partial<typeof claims.$inferInsert> =
       claim.autoTotal && ['Draft', 'Needs Review'].includes(claim.status)
         ? { claimedMinor: summary.effectiveClaimedMinor }
@@ -173,7 +218,7 @@ export async function changeClaim(actor: Actor, input: unknown) {
         );
         assert(
           summary.unknown === 0,
-          'Complete missing or mixed-currency receipt fields before approval.',
+          'Complete receipt fields and resolve unavailable exchange rates before approval.',
         );
         assert(
           !summary.needsReview || data.reason.length >= 10,
@@ -207,7 +252,15 @@ export async function changeClaim(actor: Actor, input: unknown) {
     }
     if (data.reason) update.exceptionReason = data.reason;
     const [after] = await tx.update(claims).set(update).where(eq(claims.id, claim.id)).returning();
-    await audit(tx, actor, claim.id, `claim.${data.action}`, claim, after, data.reason);
+    await audit(
+      tx,
+      actor,
+      claim.id,
+      `claim.${data.action}`,
+      claim,
+      { ...after, receiptConversions: summary.receiptConversions },
+      data.reason,
+    );
     return after;
   });
 }

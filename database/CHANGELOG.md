@@ -1,5 +1,13 @@
 # Database change record
 
+## 28 September 2026 — persisted upload direction
+
+Applied and verified `0012_upload_direction.sql` on `btpolwpgnekvyimpqegu`.
+`finance.documents.upload_direction` is nullable text restricted to `in`/`out`.
+Verified the column and migration ledger. No financial records were rewritten;
+legacy uploads retain null origin. Recovery: revert application code while retaining
+this additive column and original evidence. No production test records were added.
+
 ## 23 September 2026 — payslip salary expenses
 
 Applied and verified `0011_payslip_expenses.sql` on `btpolwpgnekvyimpqegu`, finance

@@ -1,5 +1,12 @@
 # Approvals and overdue invoices
 
+Uploads from Money Out retain outgoing direction; uploads from Money In retain
+incoming direction through extraction and retries. AI receives this context and
+cannot move a sales invoice uploaded in Money Out into Money In. Conflicting AI
+categories require review. Documents/Dashboard uploads retain automatic detection.
+Older uploads have no recorded origin; correct any existing wrong classification
+in document review rather than guessing its intended direction.
+
 Money Out supports **Upload payslip**. Salary uploads become Payroll obligations
 using net pay, grouped by salary month and approved before outgoing bank matching.
 See [salary upload instructions](SALARY.md#upload-payslips-to-money-out).

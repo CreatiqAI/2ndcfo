@@ -15,15 +15,13 @@ export async function createClaimLink(actor: Actor, input: unknown) {
     await getDb()
   ).transaction(async (tx) => {
     await lockCompany(tx, actor);
-    await tx
-      .insert(claimLinks)
-      .values({
-        companyId: actor.companyId,
-        claimId: claim.id,
-        createdBy: actor.userId,
-        tokenHash: tokenHash(token),
-        expiresAt,
-      });
+    await tx.insert(claimLinks).values({
+      companyId: actor.companyId,
+      claimId: claim.id,
+      createdBy: actor.userId,
+      tokenHash: tokenHash(token),
+      expiresAt,
+    });
     await audit(tx, actor, claim.id, 'claim.link_created', null, { expiresAt });
   });
   return { token, claimId: claim.id, expiresAt };
@@ -98,7 +96,7 @@ export async function claimPortalState(session?: string) {
     .from(documents)
     .leftJoin(jobs, eq(jobs.documentId, documents.id))
     .where(eq(documents.claimId, claim.id));
-  const summary = claimSummary(claim, receipts);
+  const summary = await claimSummary(claim, receipts);
   return {
     id: claim.id,
     title: claim.title,
@@ -108,6 +106,7 @@ export async function claimPortalState(session?: string) {
     employee: employee.name,
     total: summary.effectiveClaimedMinor,
     needsReview: summary.needsReview,
+    fxMissing: summary.fxMissing,
     files,
     receipts: receipts.map((r) => ({
       id: r.id,

@@ -149,6 +149,7 @@ export const documents = pgTable(
     purpose: text('purpose').notNull(),
     defaultPaymentTermDays: integer('default_payment_term_days'),
     uploadCurrency: text('upload_currency').notNull().default('MYR'),
+    uploadDirection: text('upload_direction'),
     createdAt: created(),
   },
   (t) => [unique().on(t.companyId, t.id), index().on(t.companyId, t.hash)],

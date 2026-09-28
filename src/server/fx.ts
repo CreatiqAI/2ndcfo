@@ -1,11 +1,15 @@
 import { eq } from 'drizzle-orm';
-import { getDb } from './db';
+import { getDb, type DB } from './db';
 import { fxRates } from './db/schema';
 import { currencies, validDate } from './core';
 import { convertMinor } from '../lib/currency';
 const failures = new Map<string, number>();
 const pending = new Map<string, Promise<typeof fxRates.$inferSelect | null>>();
-export async function myrRate(currency: string, date: string | null) {
+export async function myrRate(
+  currency: string,
+  date: string | null,
+  executor?: Pick<DB, 'select' | 'insert'>,
+) {
   if (
     currency === 'MYR' ||
     !currencies.includes(currency as (typeof currencies)[number]) ||
@@ -15,11 +19,11 @@ export async function myrRate(currency: string, date: string | null) {
   )
     return null;
   const key = `${currency}:MYR:${date}`;
-  const db = await getDb();
+  const db = executor || (await getDb());
   const [cached] = await db.select().from(fxRates).where(eq(fxRates.key, key));
   if (cached) return cached;
   if (process.env.FX_PROVIDER === 'disabled' || (failures.get(key) || 0) > Date.now()) return null;
-  if (pending.has(key)) return pending.get(key)!;
+  if (!executor && pending.has(key)) return pending.get(key)!;
   const request = (async () => {
     try {
       const response = await fetch(
@@ -57,9 +61,9 @@ export async function myrRate(currency: string, date: string | null) {
       failures.set(key, Date.now() + 60000);
       return null;
     } finally {
-      pending.delete(key);
+      if (!executor) pending.delete(key);
     }
   })();
-  pending.set(key, request);
+  if (!executor) pending.set(key, request);
   return request;
 }

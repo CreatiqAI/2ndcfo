@@ -208,25 +208,29 @@ export async function snapshot(actor: Actor) {
       };
     }),
   );
-  const claimRows = claims.map((c) => {
-    const paidMinor = sumMinor(
-      allocations.filter((a) => a.claimId === c.id).map((b) => b.amountMinor),
-    );
-    const summary = claimSummary(
-      c,
-      invoices.filter((i) => i.claimId === c.id),
-    );
-    return {
-      ...c,
-      deleted: trash.some((t) => t.claimId === c.id),
-      ...summary,
-      claimedMinor: summary.effectiveClaimedMinor,
-      employeeName: members.find((m) => m.id === c.employeeId)?.name || 'Employee',
-      paidMinor,
-      paymentStatus:
-        c.status === 'Finance Approved' ? paymentStatus(c.claimedMinor, paidMinor, null) : c.status,
-    };
-  });
+  const claimRows = await Promise.all(
+    claims.map(async (c) => {
+      const paidMinor = sumMinor(
+        allocations.filter((a) => a.claimId === c.id).map((b) => b.amountMinor),
+      );
+      const summary = await claimSummary(
+        c,
+        invoices.filter((i) => i.claimId === c.id),
+      );
+      return {
+        ...c,
+        deleted: trash.some((t) => t.claimId === c.id),
+        ...summary,
+        claimedMinor: summary.effectiveClaimedMinor,
+        employeeName: members.find((m) => m.id === c.employeeId)?.name || 'Employee',
+        paidMinor,
+        paymentStatus:
+          c.status === 'Finance Approved'
+            ? paymentStatus(c.claimedMinor, paidMinor, null)
+            : c.status,
+      };
+    }),
+  );
   const bankRows = bank.map((b) => {
     const allocated = sumMinor(
       allocations.filter((a) => a.bankTransactionId === b.id).map((x) => x.amountMinor),

@@ -13,3 +13,26 @@ export function convertMinor(amount: number, rate: string): number {
     throw new Error('Converted amount exceeds safe precision.');
   return Number(result);
 }
+// Cross rates share MYR as a base; round only once at the final currency's cents.
+export function convertMinorCross(
+  amount: number,
+  sourceToMyr: string,
+  targetToMyr: string,
+): number {
+  const fraction = (rate: string) => {
+    if (!/^\d+(\.\d{1,12})?$/.test(rate)) throw new Error('Invalid exchange rate.');
+    const [whole, part = ''] = rate.split('.');
+    const n = BigInt(whole + part);
+    if (n <= 0n) throw new Error('Invalid exchange rate.');
+    return [n, 10n ** BigInt(part.length)];
+  };
+  if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Invalid amount.');
+  const [sn, sd] = fraction(sourceToMyr),
+    [tn, td] = fraction(targetToMyr);
+  const denominator = sd * tn,
+    numerator = BigInt(amount) * sn * td;
+  const result = (numerator + denominator / 2n) / denominator;
+  if (result > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new Error('Converted amount exceeds safe precision.');
+  return Number(result);
+}

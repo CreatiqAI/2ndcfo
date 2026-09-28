@@ -28,7 +28,7 @@ import {
   templateSample,
 } from '../src/server/payslip-template';
 import sharp from 'sharp';
-import { createClaim, changeClaim } from '../src/server/claims/service';
+import { createClaim, changeClaim, claimSummary } from '../src/server/claims/service';
 import { cancelInvoice, reviewInvoice } from '../src/server/invoices/service';
 import { uploadDocument } from '../src/server/ingestion/service';
 import { readOriginal } from '../src/server/ingestion/storage';
@@ -670,6 +670,119 @@ describe('Identity, approval and tenant isolation', () => {
   });
 });
 describe('Document pipeline and statement import', () => {
+  it('includes foreign receipts in claim totals and blocks missing conversions', async () => {
+    const db = await getDb();
+    const claim = await createClaim(admin, {
+      title: 'Mixed currencies',
+      month,
+      claimed: '0',
+      currency: 'MYR',
+      autoTotal: true,
+    });
+    const usd = await draftInvoice(admin, 10000, claim.id);
+    const myr = await draftInvoice(admin, 5000, claim.id);
+    await db
+      .update(s.invoices)
+      .set({ currency: 'USD', invoiceDate: '2026-08-12' })
+      .where(eq(s.invoices.id, usd.id));
+    await db.insert(s.fxRates).values({
+      key: 'USD:MYR:2026-08-12',
+      currency: 'USD',
+      requestedDate: '2026-08-12',
+      rateDate: '2026-08-12',
+      rate: '4.25',
+      source: 'Test reference',
+    });
+    const receipts = await db.select().from(s.invoices).where(eq(s.invoices.claimId, claim.id));
+    const summary = await claimSummary(claim, receipts);
+    expect(summary.receiptTotal).toBe(47500);
+    expect(summary.categories.Software).toBe(47500);
+    expect(summary.unknown).toBe(0);
+    expect(summary.fxMissing).toBe(0);
+    expect(receipts.find((r) => r.id === usd.id)?.totalMinor).toBe(10000);
+    const missing = await claimSummary(claim, [
+      { ...usd, currency: 'USD', invoiceDate: null },
+      myr,
+    ]);
+    expect(missing.receiptTotal).toBe(5000);
+    expect(missing.fxMissing).toBe(1);
+    expect(missing.needsReview).toBe(true);
+    await changeClaim(admin, { id: claim.id, action: 'submit' });
+    const [submitted] = await db.select().from(s.claims).where(eq(s.claims.id, claim.id));
+    expect(submitted.claimedMinor).toBe(47500);
+    expect(submitted.status).toBe('Submitted');
+  });
+  it('keeps Money Out uploads outgoing even when AI returns a sales invoice', async () => {
+    const pdf = await PDFDocument.create();
+    pdf.setTitle('Expense direction regression');
+    pdf.addPage();
+    const doc = await uploadDocument(
+      admin,
+      { name: 'expense-context.pdf', data: Buffer.from(await pdf.save()) },
+      { uploadDirection: 'out' },
+    );
+    const [stored] = await (
+      await getDb()
+    )
+      .select()
+      .from(s.documents)
+      .where(eq(s.documents.id, doc.id));
+    expect(stored.uploadDirection).toBe('out');
+    const candidate = {
+      pageStart: 1,
+      pageEnd: 1,
+      kind: 'Sales Invoice',
+      party: 'Merchant',
+      number: 'CTX-1',
+      invoiceDate: '2026-09-01',
+      dueDate: null,
+      description: 'Expense',
+      product: null,
+      paymentTerms: null,
+      bankReference: null,
+      subtotal: null,
+      tax: null,
+      total: '100',
+      currency: 'MYR',
+      category: 'Other Revenue',
+      confidence: 99,
+    };
+    const mock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          output: [
+            {
+              content: [
+                {
+                  type: 'output_text',
+                  text: JSON.stringify({ documents: [candidate], notes: '' }),
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    process.env.AI_PROVIDER = 'openai';
+    process.env.OPENAI_API_KEY = 'test-placeholder-never-sent';
+    try {
+      await processOne(admin.companyId);
+    } finally {
+      mock.mockRestore();
+      process.env.AI_PROVIDER = 'mock';
+      delete process.env.OPENAI_API_KEY;
+    }
+    const [record] = await (
+      await getDb()
+    )
+      .select()
+      .from(s.invoices)
+      .where(eq(s.invoices.documentId, doc.id));
+    expect(record.kind).toBe('Supplier Invoice');
+    expect(record.category).toBeNull();
+    expect(record.reviewStatus).toBe('Needs Review');
+  });
   it('uploads salary evidence as a Payroll obligation and matches its approved net pay', async () => {
     const pdf = await PDFDocument.create();
     pdf.addPage();

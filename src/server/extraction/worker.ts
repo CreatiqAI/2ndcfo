@@ -35,7 +35,12 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
   try {
     const [doc] = await db.select().from(documents).where(eq(documents.id, job.documentId));
     const chosen = provider(),
-      result = await chosen.invoices(await readOriginal(doc.storageKey), doc.mime, doc.name);
+      result = await chosen.invoices(
+        await readOriginal(doc.storageKey),
+        doc.mime,
+        doc.name,
+        doc.uploadDirection,
+      );
     // Preserve provider evidence even when a later candidate/constraint transaction fails.
     await db.insert(extractions).values({
       companyId: doc.companyId,
@@ -110,11 +115,18 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
             })),
           );
           const isPayslip = !doc.claimId && (doc.purpose === 'payslip' || item.kind === 'Payslip');
+          const directionConflict =
+            !doc.claimId &&
+            !!doc.uploadDirection &&
+            ((doc.uploadDirection === 'out' && item.kind === 'Sales Invoice') ||
+              (doc.uploadDirection === 'in' && item.kind !== 'Sales Invoice'));
           const category = isPayslip
             ? 'Payroll'
-            : categories.includes(item.category || '')
-              ? item.category
-              : null;
+            : directionConflict
+              ? null
+              : categories.includes(item.category || '')
+                ? item.category
+                : null;
           const invoiceDate = date(item.invoiceDate),
             dueDate = date(item.dueDate);
           const incomplete =
@@ -139,7 +151,15 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
               claimId: doc.claimId,
               pageStart: item.pageStart,
               pageEnd: item.pageEnd,
-              kind: doc.claimId ? 'Claim Receipt' : isPayslip ? 'Payslip' : item.kind,
+              kind: doc.claimId
+                ? 'Claim Receipt'
+                : isPayslip
+                  ? 'Payslip'
+                  : doc.uploadDirection === 'in'
+                    ? 'Sales Invoice'
+                    : doc.uploadDirection === 'out' && item.kind === 'Sales Invoice'
+                      ? 'Supplier Invoice'
+                      : item.kind,
               party: item.party,
               number: item.number,
               invoiceDate,

@@ -57,6 +57,7 @@ export interface ExtractionProvider {
     data: Buffer,
     mime: string,
     name: string,
+    direction?: string | null,
   ): Promise<{ parsed: Extraction; raw: unknown; model: string | null }>;
   statement(
     data: Buffer,
@@ -200,14 +201,14 @@ class OpenAIProvider implements ExtractionProvider {
       );
     }
   }
-  async invoices(data: Buffer, mime: string, name: string) {
+  async invoices(data: Buffer, mime: string, name: string, direction?: string | null) {
     const count = await pageCount(data, mime);
     const result = await this.extract(
       data,
       mime,
       name,
       extractionSchema,
-      `This file has ${count} pages. Split separate invoices into contiguous nonoverlapping page ranges; preserve multipage invoices. Use ISO dates and decimal amount strings without currency symbols. Suggest one category from: ${categories.join(', ')}. Confidence is 0–100; use low confidence for ambiguity.`,
+      `This file has ${count} pages. Split separate invoices into contiguous nonoverlapping page ranges; preserve multipage invoices. Use ISO dates and decimal amount strings without currency symbols. Suggest one category from: ${categories.join(', ')}. Confidence is 0–100; use low confidence for ambiguity. ${direction === 'out' ? 'This was uploaded to Money Out: the workspace is the buyer/payer. Classify invoices as Supplier Invoice, extract the supplier as party, and choose an expense category. Preserve Payslip and Receipt types when applicable.' : direction === 'in' ? 'This was uploaded to Money In: the workspace is the seller/payee. Classify as Sales Invoice and extract the customer as party.' : ''}`,
     );
     let last = 0;
     for (const row of result.parsed.documents) {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { convertMinor, invoiceCurrency } from '../src/lib/currency';
+import { convertMinor, convertMinorCross, invoiceCurrency } from '../src/lib/currency';
 describe('Invoice currency and MYR conversion', () => {
+  it('converts cross currencies with one final rounding', () => {
+    expect(convertMinorCross(10000, '4.25', '1')).toBe(42500);
+    expect(convertMinorCross(42500, '1', '4.25')).toBe(10000);
+    expect(convertMinorCross(10000, '4.25', '3.2')).toBe(13281);
+    expect(() => convertMinorCross(100, '1', '0')).toThrow();
+  });
   it('defaults missing currency to MYR and preserves detected foreign currency', () => {
     expect(invoiceCurrency(null)).toBe('MYR');
     expect(invoiceCurrency('')).toBe('MYR');

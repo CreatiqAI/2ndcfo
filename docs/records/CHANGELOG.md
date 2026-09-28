@@ -282,3 +282,13 @@ Calendar verification: 34 tests passed, typecheck and production build passed.
 An isolated local demo confirmed September 2026 grouping, month selection and the
 empty October state in the browser. Cloud runtime restored after the check; no
 calendar test records were added to Supabase.
+# 28 September 2026 — foreign claim receipts and upload direction
+
+- Claim receipt/category totals now convert mixed currencies into the claim currency,
+  preserving originals and recording conversion evidence in action audits. Missing
+  rates are visible and prevent approval instead of silently excluding receipts.
+- Money In/Out upload direction is persisted and provided to extraction; outgoing
+  uploads cannot become sales invoices. Conflicting categories require review.
+- Added regression coverage for mixed receipt totals, unavailable rates, exact
+  cross-currency rounding and incorrect AI direction. Existing approved records
+  and legacy upload classifications are not rewritten.
