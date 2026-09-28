@@ -6,6 +6,10 @@
    accounts are linked using Settings → Workspace member without resetting passwords.
 2. Create a claim for the employee and month. Leave **Claimed amount** blank for
    automatic receipt totals, or enter a declared amount to retain comparison mode.
+   New claims always use MYR, including employee-link claims; no currency selection
+   is needed. Any manually declared amount is in MYR. Each uploaded receipt retains
+   its detected original currency and converts automatically for the MYR total.
+   Previously saved claims retain their original currency and approval history.
 3. The receipt upload opens automatically. Select multiple files in one batch;
    subsequent batches can be added to the same draft claim. Press Upload to close
    the popup and follow progress in Claims. Reopen the bundle to inspect receipts.

@@ -676,6 +676,23 @@ describe('Identity, approval and tenant isolation', () => {
   });
 });
 describe('Document pipeline and statement import', () => {
+  it('creates claims in MYR without currency input and ignores legacy overrides', async () => {
+    const input = { title: 'Automatic MYR claim', month, claimed: '0', autoTotal: true };
+    expect((await createClaim(admin, input)).currency).toBe('MYR');
+    expect((await createClaim(admin, { ...input, currency: 'USD' })).currency).toBe('MYR');
+    const link = await createClaimLink(admin, {
+      ...input,
+      employeeId: employee.userId,
+      currency: 'USD',
+    });
+    const [claim] = await (
+      await getDb()
+    )
+      .select()
+      .from(s.claims)
+      .where(eq(s.claims.id, link.claimId));
+    expect(claim.currency).toBe('MYR');
+  });
   it('includes foreign receipts in claim totals and blocks missing conversions', async () => {
     const db = await getDb();
     const claim = await createClaim(admin, {

@@ -6,7 +6,6 @@ import {
   type Actor,
   assert,
   audit,
-  currencies,
   lockCompany,
   minor,
   openPeriod,
@@ -108,7 +107,6 @@ export async function createClaim(actor: Actor, input: unknown) {
       title: z.string().trim().min(2).max(160),
       month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
       claimed: z.string(),
-      currency: z.enum(currencies),
       employeeId: z.uuid().optional(),
       autoTotal: z.boolean().default(false),
     })
@@ -134,7 +132,7 @@ export async function createClaim(actor: Actor, input: unknown) {
         month: data.month,
         claimedMinor,
         autoTotal: data.autoTotal,
-        currency: data.currency,
+        currency: 'MYR',
         department: member.department,
       })
       .returning();

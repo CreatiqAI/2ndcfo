@@ -2573,7 +2573,7 @@ function ClaimLinkForm({
             e.preventDefault();
             const data = Object.fromEntries(new FormData(e.currentTarget));
             setError('');
-            void action('claim.link', { ...data, currency: state.company.currency })
+            void action('claim.link', data)
               .then((result) => {
                 const r = result as { token: string };
                 setLink(`${window.location.origin}/claim#token=${r.token}`);
@@ -3299,16 +3299,13 @@ function CreateClaim({
         <FormField label="Claim period">
           <input type="month" name="month" defaultValue={month} required />
         </FormField>
-        <FormField label="Claimed amount (optional)">
+        <FormField label="Claimed amount in MYR (optional)">
           <input name="claimed" inputMode="decimal" placeholder="Automatically total receipts" />
         </FormField>
-        <FormField label="Currency">
-          <select name="currency" defaultValue={state.company.currency}>
-            {state.currencies.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </FormField>
+        <p className="muted">
+          Claims are totalled in MYR. Each receipt’s currency is detected automatically and foreign
+          amounts are converted using the receipt-date exchange rate.
+        </p>
         <FormField label="Employee">
           <select name="employeeId" defaultValue={state.actor.userId}>
             {state.members

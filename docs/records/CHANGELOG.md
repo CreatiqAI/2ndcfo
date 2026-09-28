@@ -1,5 +1,13 @@
 # Project change record
 
+## 28 September 2026 — MYR claim creation
+
+- Removed currency selection from claim creation. The server always creates new
+  claims and employee-link claims in MYR, even with an old client currency field.
+- Labelled optional declared amounts as MYR. Receipt currencies are detected and
+  converted automatically using existing historical-rate logic. Existing claims
+  retain their original currencies and records; no database migration needed.
+
 ## 28 September 2026 — database session pool exhaustion
 
 - Reproduced Supabase `EMAXCONNSESSION` (15-client session limit) while loading
