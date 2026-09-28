@@ -4,6 +4,12 @@ Active project: `btpolwpgnekvyimpqegu` (Singapore). App schema: `finance`.
 Private original files: Storage bucket `finance-document`. Previous project
 `adiaqoqjmjevvqmtdpnn` is retained for rollback, not active application writes.
 
+The runtime uses at most 2 PostgreSQL connections per app/worker process, releases
+idle clients after 5 seconds, and times out connection waits after 10 seconds.
+Supabase session-mode capacity is shared across processes and deployments; a
+pool-size code change takes effect when the application is redeployed/restarted.
+`EMAXCONNSESSION` indicates exhausted session capacity, not damaged records.
+
 ## Authoritative definitions
 
 - [migrations/](migrations/): SQL applied in filename order.

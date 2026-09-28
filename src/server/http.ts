@@ -23,6 +23,15 @@ export function failure(error: unknown) {
       },
       { status: 400 },
     );
+  // Inspect the driver cause without logging ORM queries or bound financial data.
+  const cause = error instanceof Error ? error.cause || error : null;
+  if (cause instanceof Error && cause.message.includes('EMAXCONNSESSION')) {
+    console.error('Request failed: database session pool capacity reached');
+    return NextResponse.json(
+      { error: 'The database is temporarily busy. Please wait a few seconds and retry.' },
+      { status: 503, headers: { 'Retry-After': '5' } },
+    );
+  }
   // ORM error messages can contain financial values or credential hashes.
   console.error('Request failed:', error instanceof Error ? error.name : 'UnknownError');
   return NextResponse.json(

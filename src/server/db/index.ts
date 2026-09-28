@@ -52,7 +52,10 @@ export function getDb(): Promise<DB> {
     return pgDrizzle(
       new Pool({
         connectionString: process.env.DATABASE_URL,
-        max: 10,
+        // Leave capacity for other serverless instances and background workers.
+        max: 2,
+        idleTimeoutMillis: 5000,
+        connectionTimeoutMillis: 10000,
         options: `-c search_path=${schemaName},public`,
         ...(ca ? { ssl: { ca, rejectUnauthorized: true } } : {}),
       }),

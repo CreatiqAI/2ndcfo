@@ -1,5 +1,15 @@
 # Project change record
 
+## 28 September 2026 — database session pool exhaustion
+
+- Reproduced Supabase `EMAXCONNSESSION` (15-client session limit) while loading
+  a workspace with foreign invoices. Reduced each app/worker PostgreSQL pool
+  from 10 to 2 clients, closing idle connections after 5 seconds and limiting
+  connection waits to 10 seconds.
+- Capacity failures now return a specific retryable 503 without exposing queries,
+  credentials or financial values. Three consecutive live workspace loads passed
+  after the change; no financial records were edited.
+
 ## 28 September 2026 — automatic document currency and MYR reporting
 
 - Removed upload currency selection and extraction overrides. Currency is detected
