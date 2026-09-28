@@ -1,5 +1,5 @@
-export function invoiceCurrency(detected: string | null, selected = 'MYR') {
-  return selected !== 'MYR' ? selected : detected?.trim().toUpperCase() || 'MYR';
+export function invoiceCurrency(detected: string | null) {
+  return detected?.trim().toUpperCase() || null;
 }
 export function convertMinor(amount: number, rate: string): number {
   if (!Number.isSafeInteger(amount) || amount < 0 || !/^\d+(\.\d{1,12})?$/.test(rate))

@@ -23,7 +23,7 @@ export async function claimSummary(
   const active = receipts.filter((x) => x.reviewStatus !== 'Rejected');
   const receiptConversions = await Promise.all(
     active.map(async (receipt) => {
-      const currency = receipt.currency || 'MYR';
+      const currency = receipt.currency || '';
       if (currency === claim.currency)
         return {
           id: receipt.id,
@@ -73,6 +73,7 @@ export async function claimSummary(
     (x) =>
       !x.totalMinor ||
       !x.party ||
+      !x.currency ||
       !x.invoiceDate ||
       !x.category ||
       converted.get(x.id) === null ||

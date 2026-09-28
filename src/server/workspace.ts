@@ -156,8 +156,8 @@ export async function snapshot(actor: Actor) {
     .where(and(eq(s.recordTrash.companyId, actor.companyId), eq(s.recordTrash.deleted, true)));
   const invoiceRows = await Promise.all(
     invoices.map(async (x) => {
-      const currency = x.currency || 'MYR';
-      const fx = x.totalMinor !== null ? await myrRate(currency, x.invoiceDate) : null;
+      const currency = x.currency;
+      const fx = currency && x.totalMinor !== null ? await myrRate(currency, x.invoiceDate) : null;
       let myrTotalMinor: number | null = currency === 'MYR' ? x.totalMinor : null;
       if (fx && x.totalMinor !== null) {
         try {
@@ -170,11 +170,33 @@ export async function snapshot(actor: Actor) {
         allocations.filter((a) => a.invoiceId === x.id).map((b) => b.amountMinor),
       );
       const cancellation = cancellations.find((c) => c.invoiceId === x.id);
+      const baseTotalMinor =
+        currency === company.currency
+          ? x.totalMinor
+          : company.currency === 'MYR'
+            ? myrTotalMinor
+            : null;
+      const basePaidMinor =
+        baseTotalMinor === null
+          ? null
+          : currency === company.currency
+            ? paidMinor
+            : fx
+              ? convertMinor(paidMinor, fx.rate)
+              : null;
+      const baseOutstandingMinor = cancellation
+        ? 0
+        : baseTotalMinor === null || basePaidMinor === null
+          ? null
+          : baseTotalMinor - basePaidMinor;
       const due = invoiceDueDate(x);
       return {
         ...x,
         currency,
         myrTotalMinor,
+        baseTotalMinor,
+        basePaidMinor,
+        baseOutstandingMinor,
         myrRate: fx?.rate || null,
         myrRateDate: fx?.rateDate || null,
         myrRateSource: fx?.source || null,
@@ -333,26 +355,26 @@ export async function snapshot(actor: Actor) {
         !x.claimId &&
         x.reviewStatus === 'Approved' &&
         x.lifecycle !== 'Cancelled' &&
-        (kind === 'Sales Invoice' ? x.kind === kind : x.kind !== 'Sales Invoice') &&
-        x.currency === company.currency,
+        (kind === 'Sales Invoice' ? x.kind === kind : x.kind !== 'Sales Invoice'),
     );
     return {
       kind,
+      conversionMissing: list.filter((x) => x.baseTotalMinor === null).length,
       total: sumMinor([
-        ...list.map((x) => x.totalMinor || 0),
+        ...list.map((x) => x.baseTotalMinor || 0),
         ...approvedClaims.map((c) => c.claimedMinor),
         ...bankExpenses.map((b) => b.amountMinor),
       ]),
       paid: sumMinor([
-        ...list.map((x) => x.paidMinor),
+        ...list.map((x) => x.basePaidMinor || 0),
         ...approvedClaims.map((c) => c.paidMinor),
         ...bankExpenses.map((b) => b.amountMinor),
       ]),
       outstanding: sumMinor([
-        ...list.map((x) => x.outstandingMinor),
+        ...list.map((x) => x.baseOutstandingMinor || 0),
         ...approvedClaims.map((c) => c.claimedMinor - c.paidMinor),
       ]),
-      overdue: sumMinor(list.filter((x) => x.isOverdue).map((x) => x.outstandingMinor)),
+      overdue: sumMinor(list.filter((x) => x.isOverdue).map((x) => x.baseOutstandingMinor || 0)),
     };
   });
   return {

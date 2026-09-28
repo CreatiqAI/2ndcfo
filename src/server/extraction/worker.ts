@@ -86,10 +86,10 @@ export async function processOne(companyId?: string, claimId?: string): Promise<
           const total = amount(item.total),
             subtotal = amount(item.subtotal),
             tax = amount(item.tax);
-          let currency = invoiceCurrency(item.currency, doc.uploadCurrency);
-          if (!currencies.includes(currency as (typeof currencies)[number])) {
-            errors.push('Unsupported detected currency; verify upload currency');
-            currency = doc.uploadCurrency;
+          let currency = invoiceCurrency(item.currency);
+          if (currency && !currencies.includes(currency as (typeof currencies)[number])) {
+            errors.push('Unsupported detected currency; review original document');
+            currency = null;
           }
           const duplicate = detectDuplicate(
             {

@@ -35,11 +35,11 @@ invoices continue to show due/overdue information for the remaining balance.
 
 ## Currency and MYR equivalents
 
-Document upload includes a currency selector, defaulting to MYR. With that default,
-explicit foreign currency detected in the document is retained; missing currency
-uses MYR. Selecting another currency explicitly applies it to that upload batch.
-Review can correct the currency before approval. Older blank-currency invoices
-display MYR and save the default on review/approval, without rewriting approved data.
+Document upload has no currency selector. AI detects each document's original
+currency independently and keeps its original amount. Unclear or missing currency
+remains unknown and blocks approval; it never silently becomes MYR. Review can
+correct currency using the original evidence. Historical upload currency metadata
+is retained but no longer overrides extraction.
 
 Foreign invoice rows show a MYR equivalent using the invoice-date ECB reference
 rate through [Frankfurter](https://frankfurter.dev/). The actual rate date and source
@@ -49,7 +49,11 @@ never an invented rate. Conversion uses exact integer arithmetic rounded to MYR 
 
 Original amounts and currencies remain intact for matching, approvals and exports.
 The MYR equivalent is a reference valuation, not a bank payment or FX settlement;
-existing cash/summary figures remain workspace-currency only. No private invoice
+Money In/Out all-date and monthly invoice totals include converted MYR values,
+including outstanding and overdue balances. Unavailable conversions label totals
+incomplete. Bank matching still requires original-currency evidence; this change
+does not create an FX settlement. Existing wrong-currency records require review
+against their originals, not blind relabelling. No private invoice
 details or amounts are sent to the rate API—only currency and date. Local Windows
 environments with a trusted corporate certificate may need Node's `--use-system-ca`.
 

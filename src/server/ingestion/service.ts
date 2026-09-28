@@ -3,15 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDb } from '../db';
 import { claims, documents, jobs } from '../db/schema';
-import {
-  type Actor,
-  assert,
-  audit,
-  lockCompany,
-  openPeriod,
-  requireRole,
-  currencies,
-} from '../core';
+import { type Actor, assert, audit, lockCompany, openPeriod, requireRole } from '../core';
 import { inspectFile, imageFingerprint, sha256, storeOriginal } from './storage';
 export async function uploadDocument(
   actor: Actor,
@@ -20,7 +12,6 @@ export async function uploadDocument(
     batchId?: string;
     claimId?: string;
     defaultPaymentTermDays?: number;
-    uploadCurrency?: string;
     payslip?: boolean;
     uploadDirection?: string;
   },
@@ -31,7 +22,6 @@ export async function uploadDocument(
     'Payslips must be uploaded as salary expenses, not claim receipts.',
   );
   const batchId = z.uuid().parse(input.batchId || randomUUID());
-  const uploadCurrency = z.enum(currencies).parse(input.uploadCurrency || 'MYR');
   const uploadDirection = input.claimId
     ? undefined
     : input.payslip
@@ -105,7 +95,6 @@ export async function uploadDocument(
         imageHash,
         purpose: input.claimId ? 'claim' : input.payslip ? 'payslip' : 'invoice',
         defaultPaymentTermDays: input.payslip ? null : defaultPaymentTermDays,
-        uploadCurrency,
         uploadDirection,
       })
       .returning();
@@ -115,7 +104,6 @@ export async function uploadDocument(
       hash,
       batchId,
       defaultPaymentTermDays,
-      uploadCurrency,
       uploadDirection,
     });
     return { id: doc.id, name: doc.name };

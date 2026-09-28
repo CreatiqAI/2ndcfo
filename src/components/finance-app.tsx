@@ -84,7 +84,6 @@ type UploadEntry = {
   paymentDays: string;
   payslip?: boolean;
   uploadDirection?: 'in' | 'out';
-  uploadCurrency: string;
   status: 'queued' | 'uploading' | 'uploaded' | 'failed';
   error?: string;
   documentId?: string;
@@ -394,7 +393,6 @@ export function FinanceApp() {
       const form = new FormData();
       form.set('file', entry.file);
       form.set('batchId', entry.batchId);
-      form.set('uploadCurrency', entry.uploadCurrency);
       if (entry.payslip) form.set('purpose', 'payslip');
       if (entry.uploadDirection) form.set('uploadDirection', entry.uploadDirection);
       if (entry.claimId) form.set('claimId', entry.claimId);
@@ -428,12 +426,7 @@ export function FinanceApp() {
       }
     }
   };
-  const startUploads = (
-    files: File[],
-    paymentDays: string,
-    batchId: string,
-    uploadCurrency: string,
-  ) => {
+  const startUploads = (files: File[], paymentDays: string, batchId: string) => {
     const claimId = selectedClaim?.id;
     const entries: UploadEntry[] = files.map((file) => ({
       id: crypto.randomUUID(),
@@ -441,7 +434,6 @@ export function FinanceApp() {
       companyId,
       claimId,
       paymentDays,
-      uploadCurrency,
       payslip: modal === 'upload-payslip',
       uploadDirection: claimId
         ? undefined
@@ -624,7 +616,7 @@ export function FinanceApp() {
                 <small>{dateLabel(i.invoiceDate)}</small>
               </td>
               <td className="amount">
-                {money(i.totalMinor, i.currency || state.company.currency)}
+                {i.currency ? money(i.totalMinor, i.currency) : 'Currency needs review'}
                 {i.currency !== 'MYR' && (
                   <small>
                     {i.myrTotalMinor !== null
@@ -1188,7 +1180,9 @@ export function FinanceApp() {
                           </span>
                         </span>
                         <span className="attention-amount">
-                          <b>{money(i.totalMinor, i.currency || state.company.currency)}</b>
+                          <b>
+                            {i.currency ? money(i.totalMinor, i.currency) : 'Currency needs review'}
+                          </b>
                           <small>
                             Review <ArrowRight size={14} />
                           </small>
@@ -1293,7 +1287,6 @@ export function FinanceApp() {
                         !i.claimId &&
                         i.reviewStatus === 'Approved' &&
                         i.lifecycle !== 'Cancelled' &&
-                        i.currency === state.company.currency &&
                         i.invoiceDate?.slice(0, 7) === moneyMonth &&
                         (page === 'Money In'
                           ? i.kind === 'Sales Invoice'
@@ -1320,23 +1313,23 @@ export function FinanceApp() {
                         : 0;
                     const monthlyTotal =
                       monthlyBankExpenses +
-                      invoices.reduce((n, i) => n + (i.totalMinor || 0), 0) +
+                      invoices.reduce((n, i) => n + (i.baseTotalMinor || 0), 0) +
                       claims.reduce((n, c) => n + c.claimedMinor, 0);
                     const monthlyOutstanding =
-                      invoices.reduce((n, i) => n + i.outstandingMinor, 0) +
+                      invoices.reduce((n, i) => n + (i.baseOutstandingMinor || 0), 0) +
                       claims.reduce((n, c) => n + c.claimedMinor - c.paidMinor, 0);
                     const monthlyOverdue = invoices
                       .filter((i) => i.isOverdue)
-                      .reduce((n, i) => n + i.outstandingMinor, 0);
+                      .reduce((n, i) => n + (i.baseOutstandingMinor || 0), 0);
                     const selectedNote = moneyMonth
-                      ? `${monthLabel(moneyMonth)} · ${state.company.currency} only`
+                      ? `${monthLabel(moneyMonth)} · ${state.company.currency}${invoices.some((i) => i.baseTotalMinor === null) ? ' · Incomplete: conversion unavailable' : ''}`
                       : 'Select a month';
                     return (
                       <>
                         <Metric
                           label={page === 'Money In' ? 'Total Revenue' : 'Total Expenses'}
                           value={money(s.total, state.company.currency)}
-                          note={`All dates · ${state.company.currency} only`}
+                          note={`All dates · ${state.company.currency}${s.conversionMissing ? ` · Incomplete: ${s.conversionMissing} conversion(s) unavailable` : ''}`}
                           icon={<FileText size={18} />}
                         />
                         <Metric
@@ -2839,13 +2832,12 @@ function UploadForm({
 }: {
   payslip?: boolean;
   claimId?: string;
-  onUpload: (files: File[], paymentDays: string, batchId: string, uploadCurrency: string) => void;
+  onUpload: (files: File[], paymentDays: string, batchId: string) => void;
   onDone: () => Promise<unknown>;
   notify: (s: string, e?: boolean) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]),
     [paymentDays, setPaymentDays] = useState(''),
-    [uploadCurrency, setUploadCurrency] = useState('MYR'),
     [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const add = (incoming: FileList | null) => {
@@ -2894,20 +2886,10 @@ function UploadForm({
           }}
         />
       </div>
-      {!claimId && (
-        <FormField label="Document currency">
-          <select value={uploadCurrency} onChange={(e) => setUploadCurrency(e.target.value)}>
-            {['MYR', 'USD', 'SGD', 'EUR', 'GBP', 'AUD', 'CAD', 'HKD'].map((code) => (
-              <option key={code}>{code}</option>
-            ))}
-          </select>
-          <p className="muted">
-            MYR is the default when currency is missing. Detected foreign currencies are retained.
-            Selecting another currency applies it to this upload. Foreign invoices show an automatic
-            MYR equivalent using the invoice-date reference rate.
-          </p>
-        </FormField>
-      )}
+      <p className="muted">
+        Currency is detected from each document and converted to MYR using its dated exchange rate.
+        Unclear currency or unavailable rates require review.
+      </p>
       {!claimId && !payslip && (
         <FormField label="Default payment terms for this upload">
           <select value={paymentDays} onChange={(e) => setPaymentDays(e.target.value)}>
@@ -2952,7 +2934,7 @@ function UploadForm({
         <button
           className="button primary"
           disabled={!files.length}
-          onClick={() => onUpload(files, paymentDays, crypto.randomUUID(), uploadCurrency)}
+          onClick={() => onUpload(files, paymentDays, crypto.randomUUID())}
         >
           <UploadCloud size={17} /> Upload {files.length || ''} files
         </button>
@@ -3457,7 +3439,7 @@ function ClaimDetail({
                     <small>{i.number || i.documentName}</small>
                   </td>
                   <td>
-                    {money(i.totalMinor, i.currency || c.currency)}
+                    {i.currency ? money(i.totalMinor, i.currency) : 'Currency needs review'}
                     {c.receiptConversions
                       .filter((r) => r.id === i.id && r.originalCurrency !== c.currency)
                       .map((r) => (
@@ -4886,7 +4868,9 @@ function ReconciliationExceptions({
                   <tr key={i.id}>
                     <td>{i.number || i.documentName}</td>
                     <td>{i.party || 'Unknown'}</td>
-                    <td>{money(i.totalMinor, i.currency || state.company.currency)}</td>
+                    <td>
+                      {i.currency ? money(i.totalMinor, i.currency) : 'Currency needs review'}
+                    </td>
                     <td>{i.duplicateReason}</td>
                   </tr>
                 ))}

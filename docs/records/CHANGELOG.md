@@ -1,5 +1,16 @@
 # Project change record
 
+## 28 September 2026 — automatic document currency and MYR reporting
+
+- Removed upload currency selection and extraction overrides. Currency is detected
+  per document; unknown currency stays unknown and cannot be approved as MYR.
+- Foreign invoice values now contribute converted MYR amounts to total/monthly
+  revenue, expenses, outstanding and overdue. Unavailable conversions explicitly
+  mark totals incomplete. Original amounts remain intact for evidence and matching.
+- Regression checks cover USD 45 remaining USD 45 and converting to RM 191.25
+  at a fixture rate of 4.25, summary conversion, and missing-currency approval guards.
+- No schema migration or rewrite of existing financial evidence was required.
+
 ## 23 September 2026 — newest-first record lists
 
 - Applied stable date ordering to Money In/Out, invoices/documents, claims, salary,

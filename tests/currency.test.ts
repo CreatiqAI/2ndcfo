@@ -7,11 +7,11 @@ describe('Invoice currency and MYR conversion', () => {
     expect(convertMinorCross(10000, '4.25', '3.2')).toBe(13281);
     expect(() => convertMinorCross(100, '1', '0')).toThrow();
   });
-  it('defaults missing currency to MYR and preserves detected foreign currency', () => {
-    expect(invoiceCurrency(null)).toBe('MYR');
-    expect(invoiceCurrency('')).toBe('MYR');
+  it('keeps missing currency unknown and preserves detected foreign currency', () => {
+    expect(invoiceCurrency(null)).toBeNull();
+    expect(invoiceCurrency('')).toBeNull();
     expect(invoiceCurrency(' usd ')).toBe('USD');
-    expect(invoiceCurrency('MYR', 'SGD')).toBe('SGD');
+    expect(invoiceCurrency('MYR')).toBe('MYR');
   });
   it('rounds MYR cents exactly rather than using floating point money', () => {
     expect(convertMinor(10000, '4.2517')).toBe(42517);

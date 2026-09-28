@@ -387,7 +387,7 @@ describe('Identity, approval and tenant isolation', () => {
     expect((await snapshot(employee)).salaries).toEqual([]);
     await expect(createSalary(admin, input)).rejects.toThrow('already exists');
   });
-  it('shows missing currency as MYR and persists the default on approval', async () => {
+  it('keeps missing currency unknown and blocks approval instead of assuming MYR', async () => {
     const row = await draftInvoice();
     await (
       await getDb()
@@ -396,14 +396,15 @@ describe('Identity, approval and tenant isolation', () => {
       .set({ currency: null })
       .where(eq(s.invoices.id, row.id));
     const display = (await snapshot(admin)).invoices.find((i) => i.id === row.id)!;
-    expect(display.currency).toBe('MYR');
-    expect(display.myrTotalMinor).toBe(row.totalMinor);
-    const approved = await reviewInvoice(admin, {
-      id: row.id,
-      version: row.version,
-      action: 'approve',
-    });
-    expect(approved.currency).toBe('MYR');
+    expect(display.currency).toBeNull();
+    expect(display.myrTotalMinor).toBeNull();
+    await expect(
+      reviewInvoice(admin, {
+        id: row.id,
+        version: row.version,
+        action: 'approve',
+      }),
+    ).rejects.toThrow('currency');
   });
   it('fetches and retains dated MYR reference rates without changing foreign amounts', async () => {
     const mock = vi
@@ -432,6 +433,11 @@ describe('Identity, approval and tenant isolation', () => {
       expect(display.totalMinor).toBe(row.totalMinor);
       expect(display.currency).toBe('USD');
       expect(display.myrTotalMinor).toBe(row.totalMinor! * 4.25);
+      const before = (await snapshot(admin)).summaries.find((x) => x.kind === 'Supplier Invoice')!;
+      await reviewInvoice(admin, { id: row.id, version: row.version, action: 'approve' });
+      const after = (await snapshot(admin)).summaries.find((x) => x.kind === 'Supplier Invoice')!;
+      expect(after.total - before.total).toBe(row.totalMinor! * 4.25);
+      expect(after.outstanding - before.outstanding).toBe(row.totalMinor! * 4.25);
     } finally {
       mock.mockRestore();
       process.env.FX_PROVIDER = 'disabled';
@@ -734,7 +740,7 @@ describe('Document pipeline and statement import', () => {
       kind: 'Sales Invoice',
       party: 'Merchant',
       number: 'CTX-1',
-      invoiceDate: '2026-09-01',
+      invoiceDate: '2026-08-12',
       dueDate: null,
       description: 'Expense',
       product: null,
@@ -742,8 +748,8 @@ describe('Document pipeline and statement import', () => {
       bankReference: null,
       subtotal: null,
       tax: null,
-      total: '100',
-      currency: 'MYR',
+      total: '45',
+      currency: 'USD',
       category: 'Other Revenue',
       confidence: 99,
     };
@@ -780,6 +786,23 @@ describe('Document pipeline and statement import', () => {
       .from(s.invoices)
       .where(eq(s.invoices.documentId, doc.id));
     expect(record.kind).toBe('Supplier Invoice');
+    expect(record.currency).toBe('USD');
+    expect(record.totalMinor).toBe(4500);
+    await (
+      await getDb()
+    )
+      .insert(s.fxRates)
+      .values({
+        key: 'USD:MYR:2026-08-12',
+        currency: 'USD',
+        requestedDate: '2026-08-12',
+        rateDate: '2026-08-12',
+        rate: '4.25',
+        source: 'Test reference',
+      })
+      .onConflictDoNothing();
+    const displayed = (await snapshot(admin)).invoices.find((i) => i.id === record.id)!;
+    expect(displayed.myrTotalMinor).toBe(19125);
     expect(record.category).toBeNull();
     expect(record.reviewStatus).toBe('Needs Review');
   });
